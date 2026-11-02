@@ -15,6 +15,7 @@ A REST API for a digital wallet system, allowing users to register, authenticate
 
 The application follows a **modular monolith** architecture with lightweight **Event Sourcing**.
 
+- Database access should be done in a repository.
 - Wallet events are immutable and serve as the source of truth.
 - Wallet balances and aggregate versions are stored as synchronous, transactional projections.
 - Aggregates are normally loaded from persisted projections rather than replaying the entire event history.
