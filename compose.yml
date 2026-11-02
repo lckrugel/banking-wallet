@@ -34,5 +34,20 @@ services:
       timeout: 5s
       retries: 5
 
+  migrate:
+    build:
+      context: .
+      target: builder
+    command: npm run db:migrate
+    environment:
+      PG_HOST: db
+      PG_PORT: 5432
+      PG_USER: ${PG_USER}
+      PG_PASSWORD: ${PG_PASSWORD}
+      PG_DB: ${PG_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   postgres_data:
