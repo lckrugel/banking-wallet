@@ -1,0 +1,1398 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "9ed13fed-433d-45d3-97e0-9cfaaf688a40",
+  "prevIds": [
+    "0b32b896-cb82-45ad-86e4-30c8469e9ee7"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": [
+        "enum",
+        "public",
+        "aggregate_type"
+      ],
+      "writes": [
+        "s|enum|public.aggregate_type",
+        "n|enum|public.aggregate_type",
+        "e|enum|public.aggregate_type",
+        "n|type|public.aggregate_type"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": [
+        "enum",
+        "public",
+        "event_type"
+      ],
+      "writes": [
+        "s|enum|public.event_type",
+        "n|enum|public.event_type",
+        "e|enum|public.event_type",
+        "n|type|public.event_type"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": [
+        "enum",
+        "public",
+        "status"
+      ],
+      "writes": [
+        "s|enum|public.status",
+        "n|enum|public.status",
+        "e|enum|public.status",
+        "n|type|public.status"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "events"
+      ],
+      "writes": [
+        "s|tbl|public.events",
+        "n|tbl|public.events",
+        "e|tbl|public.events",
+        "n|rel|public.events",
+        "n|type|public.events",
+        "n|rel|public.events_pkey",
+        "n|rel|public.uq_events_aggregate_version"
+      ],
+      "reads": [
+        "n|sch|public",
+        "n|enum|public.aggregate_type",
+        "n|enum|public.event_type"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "idempotency_keys"
+      ],
+      "writes": [
+        "s|tbl|public.idempotency_keys",
+        "n|tbl|public.idempotency_keys",
+        "e|tbl|public.idempotency_keys",
+        "n|rel|public.idempotency_keys",
+        "n|type|public.idempotency_keys",
+        "n|rel|public.idempotency_keys_pkey",
+        "n|rel|public.uq_user_idempotency"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "transfers"
+      ],
+      "writes": [
+        "s|tbl|public.transfers",
+        "n|tbl|public.transfers",
+        "e|tbl|public.transfers",
+        "n|rel|public.transfers",
+        "n|type|public.transfers",
+        "n|rel|public.transfers_pkey",
+        "n|rel|public.transfers_reversal_of_key",
+        "n|rel|public.transfers_idempotency_key_id_key"
+      ],
+      "reads": [
+        "n|sch|public",
+        "n|enum|public.status"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "wallets"
+      ],
+      "writes": [
+        "s|tbl|public.wallets",
+        "n|tbl|public.wallets",
+        "e|tbl|public.wallets",
+        "n|rel|public.wallets",
+        "n|type|public.wallets",
+        "n|rel|public.wallets_pkey",
+        "n|rel|public.wallets_user_id_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "rename_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "sessions",
+        "userId"
+      ],
+      "writes": [
+        "s|col|public.sessions.userId",
+        "n|col|public.sessions.userId",
+        "s|col|public.sessions.user_id",
+        "n|col|public.sessions.user_id"
+      ],
+      "reads": [
+        "n|tbl|public.sessions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "sessions",
+        "created_at"
+      ],
+      "writes": [
+        "s|colprop|public.sessions.created_at.type",
+        "s|colprop|public.sessions.created_at.default"
+      ],
+      "reads": [
+        "n|tbl|public.sessions",
+        "n|sch|public",
+        "n|col|public.sessions.created_at"
+      ],
+      "sqlHash": "6c1a609fd0f9726c"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "sessions",
+        "expires_at"
+      ],
+      "writes": [
+        "s|colprop|public.sessions.expires_at.type",
+        "s|colprop|public.sessions.expires_at.default"
+      ],
+      "reads": [
+        "n|tbl|public.sessions",
+        "n|sch|public",
+        "n|col|public.sessions.expires_at"
+      ],
+      "sqlHash": "4ce299b0f94fc26f"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "sessions",
+        "revoked_at"
+      ],
+      "writes": [
+        "s|colprop|public.sessions.revoked_at.type",
+        "s|colprop|public.sessions.revoked_at.default"
+      ],
+      "reads": [
+        "n|tbl|public.sessions",
+        "n|sch|public",
+        "n|col|public.sessions.revoked_at"
+      ],
+      "sqlHash": "10e748dd688fe298"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "users",
+        "deleted_at"
+      ],
+      "writes": [
+        "s|colprop|public.users.deleted_at.type",
+        "s|colprop|public.users.deleted_at.default"
+      ],
+      "reads": [
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.users.deleted_at"
+      ],
+      "sqlHash": "5e466852d5596398"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "users",
+        "created_at"
+      ],
+      "writes": [
+        "s|colprop|public.users.created_at.type",
+        "s|colprop|public.users.created_at.default"
+      ],
+      "reads": [
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.users.created_at"
+      ],
+      "sqlHash": "b6078d89aa1555e1"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "users",
+        "updated_at"
+      ],
+      "writes": [
+        "s|colprop|public.users.updated_at.type",
+        "s|colprop|public.users.updated_at.default"
+      ],
+      "reads": [
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.users.updated_at"
+      ],
+      "sqlHash": "06fe1fc97a4f4681"
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "events",
+        "idx_aggregate"
+      ],
+      "writes": [
+        "s|idx|public.idx_aggregate",
+        "n|idx|public.idx_aggregate",
+        "e|idx|public.idx_aggregate",
+        "n|rel|public.idx_aggregate"
+      ],
+      "reads": [
+        "n|tbl|public.events",
+        "n|sch|public",
+        "n|col|public.events.aggregateType",
+        "n|col|public.events.aggregate_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "transfers",
+        "idx_sender_wallet"
+      ],
+      "writes": [
+        "s|idx|public.idx_sender_wallet",
+        "n|idx|public.idx_sender_wallet",
+        "e|idx|public.idx_sender_wallet",
+        "n|rel|public.idx_sender_wallet"
+      ],
+      "reads": [
+        "n|tbl|public.transfers",
+        "n|sch|public",
+        "n|col|public.transfers.sender_wallet"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "transfers",
+        "idx_receiver_wallet"
+      ],
+      "writes": [
+        "s|idx|public.idx_receiver_wallet",
+        "n|idx|public.idx_receiver_wallet",
+        "e|idx|public.idx_receiver_wallet",
+        "n|rel|public.idx_receiver_wallet"
+      ],
+      "reads": [
+        "n|tbl|public.transfers",
+        "n|sch|public",
+        "n|col|public.transfers.receiver_wallet"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "idempotency_keys"
+      ],
+      "writes": [
+        "s|fk|public.idempotency_keys.idempotency_keys_user_id_users_id_fkey",
+        "n|fk|public.idempotency_keys.idempotency_keys_user_id_users_id_fkey",
+        "e|fk|public.idempotency_keys.idempotency_keys_user_id_users_id_fkey",
+        "n|con|public.idempotency_keys.idempotency_keys_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.idempotency_keys",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.idempotency_keys.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "transfers"
+      ],
+      "writes": [
+        "s|fk|public.transfers.transfers_sender_wallet_wallets_id_fkey",
+        "n|fk|public.transfers.transfers_sender_wallet_wallets_id_fkey",
+        "e|fk|public.transfers.transfers_sender_wallet_wallets_id_fkey",
+        "n|con|public.transfers.transfers_sender_wallet_wallets_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.transfers",
+        "n|sch|public",
+        "n|tbl|public.wallets",
+        "n|sch|public",
+        "n|col|public.transfers.sender_wallet",
+        "n|col|public.wallets.id",
+        "e|uniqueness|public.wallets.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "transfers"
+      ],
+      "writes": [
+        "s|fk|public.transfers.transfers_receiver_wallet_wallets_id_fkey",
+        "n|fk|public.transfers.transfers_receiver_wallet_wallets_id_fkey",
+        "e|fk|public.transfers.transfers_receiver_wallet_wallets_id_fkey",
+        "n|con|public.transfers.transfers_receiver_wallet_wallets_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.transfers",
+        "n|sch|public",
+        "n|tbl|public.wallets",
+        "n|sch|public",
+        "n|col|public.transfers.receiver_wallet",
+        "n|col|public.wallets.id",
+        "e|uniqueness|public.wallets.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "transfers"
+      ],
+      "writes": [
+        "s|fk|public.transfers.transfers_reversal_of_transfers_id_fkey",
+        "n|fk|public.transfers.transfers_reversal_of_transfers_id_fkey",
+        "e|fk|public.transfers.transfers_reversal_of_transfers_id_fkey",
+        "n|con|public.transfers.transfers_reversal_of_transfers_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.transfers",
+        "n|sch|public",
+        "n|tbl|public.transfers",
+        "n|sch|public",
+        "n|col|public.transfers.reversal_of",
+        "n|col|public.transfers.id",
+        "e|uniqueness|public.transfers.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "transfers"
+      ],
+      "writes": [
+        "s|fk|public.transfers.transfers_idempotency_key_id_idempotency_keys_id_fkey",
+        "n|fk|public.transfers.transfers_idempotency_key_id_idempotency_keys_id_fkey",
+        "e|fk|public.transfers.transfers_idempotency_key_id_idempotency_keys_id_fkey",
+        "n|con|public.transfers.transfers_idempotency_key_id_idempotency_keys_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.transfers",
+        "n|sch|public",
+        "n|tbl|public.idempotency_keys",
+        "n|sch|public",
+        "n|col|public.transfers.idempotency_key_id",
+        "n|col|public.idempotency_keys.id",
+        "e|uniqueness|public.idempotency_keys.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "wallets"
+      ],
+      "writes": [
+        "s|fk|public.wallets.wallets_user_id_users_id_fkey",
+        "n|fk|public.wallets.wallets_user_id_users_id_fkey",
+        "e|fk|public.wallets.wallets_user_id_users_id_fkey",
+        "n|con|public.wallets.wallets_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.wallets",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.wallets.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "rename",
+      "key": "columns\u0000[\"public\",\"sessions\",\"userId\"]",
+      "set": {
+        "name": "user_id"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "events",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "idempotency_keys",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "transfers",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "wallets",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "aggregate_type",
+        "values": [
+          "WALLET"
+        ],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "event_type",
+        "values": [
+          "WALLET_CREATED",
+          "SEED_FUNDS",
+          "FUNDS_CREDITED",
+          "FUNDS_DEBITED"
+        ],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "status",
+        "values": [
+          "COMPLETED",
+          "REVERSED"
+        ],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "aggregateType",
+        "type": "aggregate_type",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "aggregate_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "version",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "eventType",
+        "type": "event_type",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "payload",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "operation_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "idempotency_keys",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "idempotency_keys",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "idempotency_keys",
+        "name": "key",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "idempotency_keys",
+        "name": "request_hash",
+        "type": "varchar(64)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "idempotency_keys",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "sender_wallet",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "receiver_wallet",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "amount_cents",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "status",
+        "type": "status",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'COMPLETED'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "reversal_of",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "idempotency_key_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "wallets",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "wallets",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "wallets",
+        "name": "balance_cents",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "wallets",
+        "name": "version",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "wallets",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "wallets",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "idx_aggregate",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "aggregateType",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "aggregate_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "idx_sender_wallet",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "sender_wallet",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "idx_receiver_wallet",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "receiver_wallet",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "idempotency_keys",
+        "name": "idempotency_keys_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "transfers_sender_wallet_wallets_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "sender_wallet"
+        ],
+        "schemaTo": "public",
+        "tableTo": "wallets",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "transfers_receiver_wallet_wallets_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "receiver_wallet"
+        ],
+        "schemaTo": "public",
+        "tableTo": "wallets",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "transfers_reversal_of_transfers_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "reversal_of"
+        ],
+        "schemaTo": "public",
+        "tableTo": "transfers",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "transfers_idempotency_key_id_idempotency_keys_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "idempotency_key_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "idempotency_keys",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "wallets",
+        "name": "wallets_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "events_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "idempotency_keys",
+        "name": "idempotency_keys_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "transfers_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "wallets",
+        "name": "wallets_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "uq_events_aggregate_version",
+        "nameExplicit": true,
+        "columns": [
+          "aggregateType",
+          "aggregate_id",
+          "version"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "idempotency_keys",
+        "name": "uq_user_idempotency",
+        "nameExplicit": true,
+        "columns": [
+          "user_id",
+          "key"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "transfers_reversal_of_key",
+        "nameExplicit": false,
+        "columns": [
+          "reversal_of"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "transfers_idempotency_key_id_key",
+        "nameExplicit": false,
+        "columns": [
+          "idempotency_key_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "wallets",
+        "name": "wallets_user_id_key",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "ck_transfer_amount_positive",
+        "value": "\"amount_cents\" > 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "ck_not_self_transfer",
+        "value": "\"receiver_wallet\" <> \"sender_wallet\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "transfers",
+        "name": "ck_transfer_not_self_reversal",
+        "value": "\"reversal_of\" IS NULL OR \"reversal_of\" <> \"id\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "wallets",
+        "name": "ck_positive_balance",
+        "value": "\"balance_cents\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"sessions\",\"created_at\"]",
+      "set": {
+        "type": "timestamp with time zone"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"sessions\",\"expires_at\"]",
+      "set": {
+        "type": "timestamp with time zone"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"sessions\",\"revoked_at\"]",
+      "set": {
+        "type": "timestamp with time zone"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"users\",\"deleted_at\"]",
+      "set": {
+        "type": "timestamp with time zone"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"users\",\"created_at\"]",
+      "set": {
+        "type": "timestamp with time zone"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"users\",\"updated_at\"]",
+      "set": {
+        "type": "timestamp with time zone"
+      }
+    }
+  ]
+}
