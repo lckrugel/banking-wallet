@@ -1,0 +1,37 @@
+services:
+  api:
+    build:
+      context: .
+      target: prod
+    port:
+      - ${PORT:-3000}:3000
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - PG_HOST=db
+      - PG_PORT=5432
+      - PG_USER=${PG_USER}
+      - PG_PASSWORD=${PG_PASSWORD}
+      - PG_DB=${PG_DB}
+    depends_on:
+      db:
+        contition: service_healthy
+
+  db:
+    image: postgres:18-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      - POSTGRES_USER=${PG_USER}
+      - POSTGRES_PASSWORD=${PG_PASSWORD}
+      - POSTGRES_DB=${PG_DB}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
