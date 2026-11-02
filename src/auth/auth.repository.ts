@@ -1,18 +1,16 @@
 import { ConflictException, Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, eq, gt, isNull } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database/drizzle.schema.js';
-
-type Database = NodePgDatabase;
+import type { DatabaseTransaction } from '../database/database.types.js';
 
 @Injectable()
 export class AuthRepository {
-  constructor(@InjectDrizzle() private readonly db: Database) {}
-
-  async createUser(input: { email: string; password: string; name: string }) {
+  async createUser(
+    tx: DatabaseTransaction,
+    input: { email: string; password: string; name: string },
+  ) {
     try {
-      const [user] = await this.db
+      const [user] = await tx
         .insert(schema.usersTable)
         .values(input)
         .returning({
@@ -38,8 +36,8 @@ export class AuthRepository {
     }
   }
 
-  async findUserByEmail(email: string) {
-    const [user] = await this.db
+  async findUserByEmail(tx: DatabaseTransaction, email: string) {
+    const [user] = await tx
       .select()
       .from(schema.usersTable)
       .where(
@@ -52,16 +50,25 @@ export class AuthRepository {
     return user;
   }
 
-  async createSession(userId: string, expiresAt: Date) {
-    const [session] = await this.db
+  async createSession(
+    tx: DatabaseTransaction,
+    userId: string,
+    expiresAt: Date,
+  ) {
+    const [session] = await tx
       .insert(schema.sessionsTable)
       .values({ userId, expiresAt })
       .returning({ id: schema.sessionsTable.id });
     return session;
   }
 
-  async findActiveSession(sessionId: string, userId: string, now = new Date()) {
-    const [session] = await this.db
+  async findActiveSession(
+    tx: DatabaseTransaction,
+    sessionId: string,
+    userId: string,
+    now = new Date(),
+  ) {
+    const [session] = await tx
       .select({
         id: schema.sessionsTable.id,
         userId: schema.usersTable.id,
@@ -87,11 +94,12 @@ export class AuthRepository {
   }
 
   async revokeSession(
+    tx: DatabaseTransaction,
     sessionId: string,
     userId: string,
     revokedAt = new Date(),
   ) {
-    const [session] = await this.db
+    const [session] = await tx
       .update(schema.sessionsTable)
       .set({ revokedAt })
       .where(

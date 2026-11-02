@@ -1,5 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectDrizzle } from '@nestjs/drizzle';
+import type { Database } from '../database/database.types.js';
 import * as argon2 from 'argon2';
 import { AuthRepository } from './auth.repository.js';
 
@@ -8,6 +10,7 @@ export const SESSION_DURATION_MS = 60 * 60 * 1000;
 @Injectable()
 export class AuthService {
   constructor(
+    @InjectDrizzle() private readonly db: Database,
     private readonly repository: AuthRepository,
     private readonly jwt: JwtService,
   ) {}
@@ -16,11 +19,15 @@ export class AuthService {
     const password = await argon2.hash(input.password, {
       type: argon2.argon2id,
     });
-    return this.repository.createUser({ ...input, password });
+    return this.db.transaction((tx) =>
+      this.repository.createUser(tx, { ...input, password }),
+    );
   }
 
   async login(email: string, password: string) {
-    const user = await this.repository.findUserByEmail(email);
+    const user = await this.db.transaction((tx) =>
+      this.repository.findUserByEmail(tx, email),
+    );
     if (!user || !(await argon2.verify(user.password, password))) {
       throw new UnauthorizedException({
         statusCode: 401,
@@ -30,7 +37,9 @@ export class AuthService {
     }
 
     const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
-    const session = await this.repository.createSession(user.id, expiresAt);
+    const session = await this.db.transaction((tx) =>
+      this.repository.createSession(tx, user.id, expiresAt),
+    );
     const accessToken = await this.jwt.signAsync(
       { sub: user.id, sid: session.id },
       { expiresIn: '1h' },
@@ -39,7 +48,9 @@ export class AuthService {
   }
 
   async authenticate(sessionId: string, userId: string) {
-    const user = await this.repository.findActiveSession(sessionId, userId);
+    const user = await this.db.transaction((tx) =>
+      this.repository.findActiveSession(tx, sessionId, userId),
+    );
     if (!user) throw new UnauthorizedException();
     return {
       id: user.userId,
@@ -50,6 +61,8 @@ export class AuthService {
   }
 
   async logout(sessionId: string, userId: string) {
-    await this.repository.revokeSession(sessionId, userId);
+    await this.db.transaction((tx) =>
+      this.repository.revokeSession(tx, sessionId, userId),
+    );
   }
 }
