@@ -58,3 +58,11 @@ curl http://localhost:3000
 Altere a porta para a que estiver definida no seu `.env`.
 
 ### Testes
+
+### Logs
+
+Logs da aplicação podem ser acessados através do comando:
+
+```
+docker compose logs api -f
+```
