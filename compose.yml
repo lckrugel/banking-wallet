@@ -9,6 +9,7 @@ services:
       - NODE_ENV=${NODE_ENV:-production}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - PORT=${PORT:-3000}
+      - JWT_SECRET=${JWT_SECRET}
       - PG_HOST=db
       - PG_PORT=5432
       - PG_USER=${PG_USER}

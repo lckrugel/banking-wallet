@@ -2,6 +2,7 @@ import { plainToInstance, Type } from 'class-transformer';
 import {
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Max,
@@ -53,6 +54,11 @@ export class EnvironmentVariables {
   PG_PASSWORD: string;
   @IsString()
   PG_DB: string;
+
+  // Authentication
+  @IsString()
+  @IsNotEmpty()
+  JWT_SECRET: string;
 }
 
 export function validate(config: Record<string, unknown>) {
