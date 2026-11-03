@@ -4,7 +4,7 @@ services:
     tmpfs:
       - /var/lib/postgresql
     ports:
-      - '127.0.0.1:5432:5432'
+      - '127.0.0.1:${PG_TEST_PORT:-5433}:5432'
     environment:
       - POSTGRES_USER=${PG_USER}
       - POSTGRES_PASSWORD=${PG_PASSWORD}
