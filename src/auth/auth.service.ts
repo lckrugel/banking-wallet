@@ -2,8 +2,11 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Database } from '../database/database.types.js';
-import * as argon2 from 'argon2';
 import { AuthRepository } from './auth.repository.js';
+import { PasswordHasher } from './password-hasher.service.js';
+import { UsersService } from '../users/users.service.js';
+import type { AuthenticatedUser } from './auth.guard.js';
+import type { LoginResponseDto } from './dto/login-response.dto.js';
 
 export const SESSION_DURATION_MS = 60 * 60 * 1000;
 
@@ -13,22 +16,15 @@ export class AuthService {
     @InjectDrizzle() private readonly db: Database,
     private readonly repository: AuthRepository,
     private readonly jwt: JwtService,
+    private readonly users: UsersService,
+    private readonly passwordHasher: PasswordHasher,
   ) {}
 
-  async register(input: { email: string; password: string; name: string }) {
-    const password = await argon2.hash(input.password, {
-      type: argon2.argon2id,
-    });
-    return this.db.transaction((tx) =>
-      this.repository.createUser(tx, { ...input, password }),
-    );
-  }
-
-  async login(email: string, password: string) {
+  async login(email: string, password: string): Promise<LoginResponseDto> {
     const user = await this.db.transaction((tx) =>
-      this.repository.findUserByEmail(tx, email),
+      this.users.findByEmail(tx, email),
     );
-    if (!user || !(await argon2.verify(user.password, password))) {
+    if (!user || !(await this.passwordHasher.verify(user.password, password))) {
       throw new UnauthorizedException({
         statusCode: 401,
         code: 'INVALID_CREDENTIALS',
@@ -47,7 +43,10 @@ export class AuthService {
     return { accessToken, tokenType: 'Bearer', expiresIn: 3600 };
   }
 
-  async authenticate(sessionId: string, userId: string) {
+  async authenticate(
+    sessionId: string,
+    userId: string,
+  ): Promise<AuthenticatedUser> {
     const user = await this.db.transaction((tx) =>
       this.repository.findActiveSession(tx, sessionId, userId),
     );
@@ -60,7 +59,7 @@ export class AuthService {
     };
   }
 
-  async logout(sessionId: string, userId: string) {
+  async logout(sessionId: string, userId: string): Promise<void> {
     await this.db.transaction((tx) =>
       this.repository.revokeSession(tx, sessionId, userId),
     );
