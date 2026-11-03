@@ -1,9 +1,9 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
+import { LoginDto } from '../auth/dto/login.dto.js';
 
-describe('Authentication DTOs', () => {
+describe('Registration DTO', () => {
   it('normalizes registration email and trims the required name', async () => {
     const dto = plainToInstance(RegisterDto, {
       email: '  PERSON @Example.COM  ',
