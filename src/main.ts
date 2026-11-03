@@ -1,9 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { ValidationPipe } from '@nestjs/common';
+import { DomainErrorFilter } from './common/domain-error.filter.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.useGlobalFilters(new DomainErrorFilter());
 
   app.useGlobalPipes(
     new ValidationPipe({

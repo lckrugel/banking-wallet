@@ -2,15 +2,6 @@
 
 A REST API for a digital wallet system, allowing users to register, authenticate, transfer funds between wallets, check balances, and reverse transfers.
 
-## Tech Stack
-
-- **Framework:** NestJS with TypeScript
-- **Database:** PostgreSQL
-- **ORM:** Drizzle ORM + Drizzle Kit
-- **Infrastructure:** Docker and Docker Compose
-- **Testing:** Vitest
-- **API Documentation:** OpenAPI via `@nestjs/swagger` (code-first)
-
 ## Architecture
 
 The application follows a **modular monolith** architecture with lightweight **Event Sourcing**.
@@ -24,18 +15,17 @@ The application follows a **modular monolith** architecture with lightweight **E
 
 ## Core Invariants
 
-- Authentication uses 1-hour JWTs with revocable PostgreSQL-backed sessions, validated on every authenticated request, without refresh tokens.
 - Monetary values use integer cents: `bigint` internally and decimal strings in JSON.
-- Wallet balances cannot become negative.
 - Transfers must atomically debit one wallet, credit another, and persist all associated events.
 - Concurrent operations must preserve financial consistency.
 - Transfers are protected against duplicate execution through persisted idempotency keys.
 - Reversals are compensating operations; original events must never be modified or deleted.
+- Events reference the operation associated to them, if there is one, via `operation_id`
+  - For example: a transfer creates 2 events for different aggregates (wallets), both referencing the transfer.
 
 ## Development Guidelines
 
 - Keep business logic independent of NestJS and persistence implementations.
 - Prefer simple, explicit abstractions over unnecessary architectural complexity.
-- Use database migrations for schema changes.
 - Write unit tests for domain rules and integration tests against PostgreSQL for transactional behavior.
 - Prioritize correctness, security, and maintainability over premature optimization.

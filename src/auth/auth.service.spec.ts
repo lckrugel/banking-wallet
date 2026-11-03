@@ -1,6 +1,6 @@
 import { JwtService } from '@nestjs/jwt';
-import type { Database } from '../database/database.types.js';
 import type { DatabaseTransaction } from '../database/database.types.js';
+import type { UnitOfWork } from '../database/unit-of-work.js';
 import { UsersService } from '../users/users.service.js';
 import { AuthRepository } from './auth.repository.js';
 import { PasswordHasher } from './password-hasher.service.js';
@@ -16,10 +16,9 @@ describe('AuthService', () => {
   const users = { findByEmail: vi.fn() };
   const passwordHasher = { verify: vi.fn() };
   const jwt = { signAsync: vi.fn() };
-  const db = {
-    transaction: vi.fn(
-      (callback: (transaction: DatabaseTransaction) => unknown) =>
-        Promise.resolve(callback(tx)),
+  const uow = {
+    execute: vi.fn(
+      <T>(work: (transaction: DatabaseTransaction) => Promise<T>) => work(tx),
     ),
   };
   let service: AuthService;
@@ -27,7 +26,7 @@ describe('AuthService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     service = new AuthService(
-      db as unknown as Database,
+      uow as unknown as UnitOfWork,
       repository as unknown as AuthRepository,
       jwt as unknown as JwtService,
       users as unknown as UsersService,
@@ -67,7 +66,7 @@ describe('AuthService', () => {
       tokenType: 'Bearer',
       expiresIn: 3600,
     });
-    expect(db.transaction).toHaveBeenCalledTimes(2);
+    expect(uow.execute).toHaveBeenCalledTimes(2);
   });
 
   it.each([

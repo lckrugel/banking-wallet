@@ -20,8 +20,10 @@
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
+    "test:integration": "vitest run --config ./vitest.config.integration.ts",
     "db:generate": "npx drizzle-kit generate",
-    "db:migrate": "npx drizzle-kit migrate"
+    "db:migrate": "npx drizzle-kit migrate",
+    "db:seed-wallet": "npm run build && node dist/database/seed-wallet.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

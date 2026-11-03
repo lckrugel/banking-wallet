@@ -1,17 +1,18 @@
-import type { Database } from '../database/database.types.js';
 import type { DatabaseTransaction } from '../database/database.types.js';
+import type { UnitOfWork } from '../database/unit-of-work.js';
 import { PasswordHasher } from '../auth/password-hasher.service.js';
 import { UsersService } from '../users/users.service.js';
+import { WalletService } from '../wallet/wallet.service.js';
 import { RegistrationService } from './registration.service.js';
 
 describe('RegistrationService', () => {
   const tx = {} as DatabaseTransaction;
   const users = { create: vi.fn() };
+  const wallet = { createForUser: vi.fn() };
   const passwordHasher = { hash: vi.fn() };
-  const db = {
-    transaction: vi.fn(
-      (callback: (transaction: DatabaseTransaction) => unknown) =>
-        Promise.resolve(callback(tx)),
+  const uow = {
+    execute: vi.fn(
+      <T>(work: (transaction: DatabaseTransaction) => Promise<T>) => work(tx),
     ),
   };
   let service: RegistrationService;
@@ -19,9 +20,10 @@ describe('RegistrationService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     service = new RegistrationService(
-      db as unknown as Database,
       users as unknown as UsersService,
+      wallet as unknown as WalletService,
       passwordHasher as unknown as PasswordHasher,
+      uow as unknown as UnitOfWork,
     );
   });
 
@@ -32,6 +34,7 @@ describe('RegistrationService', () => {
       email: 'person@example.com',
       name: 'Person',
     });
+    wallet.createForUser.mockResolvedValue(undefined);
 
     const result = await service.register({
       email: 'person@example.com',
@@ -45,7 +48,8 @@ describe('RegistrationService', () => {
       password: 'argon2id$hashed-password',
       name: 'Person',
     });
+    expect(wallet.createForUser).toHaveBeenCalledWith(tx, 'user-id');
     expect(result).not.toHaveProperty('password');
-    expect(db.transaction).toHaveBeenCalledOnce();
+    expect(uow.execute).toHaveBeenCalledOnce();
   });
 });
