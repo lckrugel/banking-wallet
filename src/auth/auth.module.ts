@@ -5,9 +5,12 @@ import { AuthController } from './auth.controller.js';
 import { AuthGuard } from './auth.guard.js';
 import { AuthRepository } from './auth.repository.js';
 import { AuthService } from './auth.service.js';
+import { PasswordHasher } from './password-hasher.service.js';
+import { UsersModule } from '../users/users.module.js';
 
 @Module({
   imports: [
+    UsersModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -17,7 +20,7 @@ import { AuthService } from './auth.service.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthRepository, AuthService, AuthGuard],
-  exports: [AuthGuard, AuthService],
+  providers: [AuthRepository, AuthService, AuthGuard, PasswordHasher],
+  exports: [AuthGuard, AuthService, JwtModule, PasswordHasher],
 })
 export class AuthModule {}
