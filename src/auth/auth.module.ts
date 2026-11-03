@@ -7,10 +7,12 @@ import { AuthRepository } from './auth.repository.js';
 import { AuthService } from './auth.service.js';
 import { PasswordHasher } from './password-hasher.service.js';
 import { UsersModule } from '../users/users.module.js';
+import { DatabaseModule } from '../database/database.module.js';
 
 @Module({
   imports: [
     UsersModule,
+    DatabaseModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

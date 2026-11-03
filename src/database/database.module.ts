@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DrizzleModule } from '@nestjs/drizzle';
 import { drizzleFactory } from './drizzle.provider.js';
-import { DrizzleUnitOfWork } from './unity-of-work.js';
+import { DrizzleUnitOfWork, UNIT_OF_WORK } from './unit-of-work.js';
 
 @Module({
   imports: [
@@ -12,7 +12,10 @@ import { DrizzleUnitOfWork } from './unity-of-work.js';
       useFactory: drizzleFactory,
     }),
   ],
-  providers: [DrizzleUnitOfWork],
-  exports: [DrizzleUnitOfWork],
+  providers: [
+    DrizzleUnitOfWork,
+    { provide: UNIT_OF_WORK, useExisting: DrizzleUnitOfWork },
+  ],
+  exports: [UNIT_OF_WORK],
 })
 export class DatabaseModule {}

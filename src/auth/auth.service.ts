@@ -1,7 +1,6 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import type { Database } from '../database/database.types.js';
+import { UNIT_OF_WORK, type UnitOfWork } from '../database/unit-of-work.js';
 import { AuthRepository } from './auth.repository.js';
 import { PasswordHasher } from './password-hasher.service.js';
 import { UsersService } from '../users/users.service.js';
@@ -13,7 +12,7 @@ export const SESSION_DURATION_MS = 60 * 60 * 1000;
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectDrizzle() private readonly db: Database,
+    @Inject(UNIT_OF_WORK) private readonly uow: UnitOfWork,
     private readonly repository: AuthRepository,
     private readonly jwt: JwtService,
     private readonly users: UsersService,
@@ -21,7 +20,7 @@ export class AuthService {
   ) {}
 
   async login(email: string, password: string): Promise<LoginResponseDto> {
-    const user = await this.db.transaction((tx) =>
+    const user = await this.uow.execute((tx) =>
       this.users.findByEmail(tx, email),
     );
     if (!user || !(await this.passwordHasher.verify(user.password, password))) {
@@ -33,7 +32,7 @@ export class AuthService {
     }
 
     const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
-    const session = await this.db.transaction((tx) =>
+    const session = await this.uow.execute((tx) =>
       this.repository.createSession(tx, user.id, expiresAt),
     );
     const accessToken = await this.jwt.signAsync(
@@ -47,7 +46,7 @@ export class AuthService {
     sessionId: string,
     userId: string,
   ): Promise<AuthenticatedUser> {
-    const user = await this.db.transaction((tx) =>
+    const user = await this.uow.execute((tx) =>
       this.repository.findActiveSession(tx, sessionId, userId),
     );
     if (!user) throw new UnauthorizedException();
@@ -60,7 +59,7 @@ export class AuthService {
   }
 
   async logout(sessionId: string, userId: string): Promise<void> {
-    await this.db.transaction((tx) =>
+    await this.uow.execute((tx) =>
       this.repository.revokeSession(tx, sessionId, userId),
     );
   }

@@ -1,0 +1,157 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8a3878be-47ea-455a-a018-a97678627ac6",
+  "prevIds": [
+    "9ed13fed-433d-45d3-97e0-9cfaaf688a40"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "events"
+      ],
+      "writes": [
+        "s|fk|public.events.events_aggregate_id_wallets_id_fkey",
+        "n|fk|public.events.events_aggregate_id_wallets_id_fkey",
+        "e|fk|public.events.events_aggregate_id_wallets_id_fkey",
+        "n|con|public.events.events_aggregate_id_wallets_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.events",
+        "n|sch|public",
+        "n|tbl|public.wallets",
+        "n|sch|public",
+        "n|col|public.events.aggregate_id",
+        "n|col|public.wallets.id",
+        "e|uniqueness|public.wallets.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "events"
+      ],
+      "writes": [
+        "s|fk|public.events.events_operation_id_transfers_id_fkey",
+        "n|fk|public.events.events_operation_id_transfers_id_fkey",
+        "e|fk|public.events.events_operation_id_transfers_id_fkey",
+        "n|con|public.events.events_operation_id_transfers_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.events",
+        "n|sch|public",
+        "n|tbl|public.transfers",
+        "n|sch|public",
+        "n|col|public.events.operation_id",
+        "n|col|public.transfers.id",
+        "e|uniqueness|public.transfers.id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "events"
+      ],
+      "writes": [
+        "s|ck|public.events.ck_event_version_positive",
+        "n|ck|public.events.ck_event_version_positive",
+        "e|ck|public.events.ck_event_version_positive",
+        "n|con|public.events.ck_event_version_positive"
+      ],
+      "reads": [
+        "n|tbl|public.events",
+        "n|sch|public",
+        "n|col|public.events.version"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "wallets"
+      ],
+      "writes": [
+        "s|ck|public.wallets.ck_wallet_version_positive",
+        "n|ck|public.wallets.ck_wallet_version_positive",
+        "e|ck|public.wallets.ck_wallet_version_positive",
+        "n|con|public.wallets.ck_wallet_version_positive"
+      ],
+      "reads": [
+        "n|tbl|public.wallets",
+        "n|sch|public",
+        "n|col|public.wallets.version"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "events_aggregate_id_wallets_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "aggregate_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "wallets",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "events_operation_id_transfers_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "operation_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "transfers",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "events",
+        "name": "ck_event_version_positive",
+        "value": "\"version\" >= 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "wallets",
+        "name": "ck_wallet_version_positive",
+        "value": "\"version\" >= 1",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

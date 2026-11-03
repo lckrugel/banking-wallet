@@ -67,7 +67,10 @@ export const walletsTable = pgTable(
       .$onUpdateFn(() => new Date())
       .notNull(),
   }),
-  (t) => [check('ck_positive_balance', sql`${t.balanceCents} >= 0`)],
+  (t) => [
+    check('ck_positive_balance', sql`${t.balanceCents} >= 0`),
+    check('ck_wallet_version_positive', sql`${t.version} >= 1`),
+  ],
 );
 
 export type Wallet = InferSelectModel<typeof walletsTable>;
@@ -160,11 +163,16 @@ export const eventsTable = pgTable(
   (t) => ({
     id: t.uuid().defaultRandom().primaryKey(),
     aggregateType: aggregateTypeEnum().notNull(),
-    aggregateId: t.uuid('aggregate_id').notNull(),
+    aggregateId: t
+      .uuid('aggregate_id')
+      .references(() => walletsTable.id)
+      .notNull(),
     version: t.integer().notNull(),
     eventType: eventTypeEnum().notNull(),
     payload: t.jsonb().notNull(),
-    operationId: t.uuid('operation_id'),
+    operationId: t
+      .uuid('operation_id')
+      .references(() => tranfersTable.id),
     createdAt: t
       .timestamp('created_at', { withTimezone: true })
       .defaultNow()
@@ -176,6 +184,7 @@ export const eventsTable = pgTable(
       t.aggregateId,
       t.version,
     ),
+    check('ck_event_version_positive', sql`${t.version} >= 1`),
     index('idx_aggregate').on(t.aggregateType, t.aggregateId),
   ],
 );

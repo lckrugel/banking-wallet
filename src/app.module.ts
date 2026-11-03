@@ -6,6 +6,8 @@ import { ConfigModule } from '@nestjs/config';
 import { validate } from './env.validation.js';
 import { AuthModule } from './auth/auth.module.js';
 import { RegistrationModule } from './registration/registration.module.js';
+import { EventsModule } from './events/events.module.js';
+import { WalletModule } from './wallet/wallet.module.js';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { RegistrationModule } from './registration/registration.module.js';
     DatabaseModule,
     AuthModule,
     RegistrationModule,
+    WalletModule,
+    EventsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,7 +1,9 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
 import * as schema from '../database/drizzle.schema.js';
 import type { DatabaseTransaction } from '../database/database.types.js';
+import { isPostgresConstraintViolation } from '../database/postgres-error.js';
+import { EmailAlreadyExists } from './users.errors.js';
 
 @Injectable()
 export class UsersRepository {
@@ -20,17 +22,8 @@ export class UsersRepository {
         });
       return user;
     } catch (error) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === '23505'
-      ) {
-        throw new ConflictException({
-          statusCode: 409,
-          code: 'EMAIL_ALREADY_EXISTS',
-          message: 'An account with this email already exists',
-        });
+      if (isPostgresConstraintViolation(error, '23505', 'users_email_key')) {
+        throw new EmailAlreadyExists({ cause: error });
       }
       throw error;
     }
