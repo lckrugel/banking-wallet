@@ -70,43 +70,13 @@ npm run db:migrate
 npm run start:dev
 ```
 
-### 4. Experimente os endpoints existentes
+### 4. Explore a API
 
-```sh
-curl -X POST http://localhost:3000/users \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Pessoa Exemplo","email":"pessoa@example.com","password":"uma-senha-longa-de-exemplo"}'
+Com a API em execução, acesse [Swagger UI](http://localhost:3000/docs) para
+consultar e experimentar os endpoints. A especificação OpenAPI em JSON está em
+[`/docs-json`](http://localhost:3000/docs-json).
 
-curl -X POST http://localhost:3000/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"pessoa@example.com","password":"uma-senha-longa-de-exemplo"}'
-```
-
-O login retorna `accessToken`, `tokenType` (`Bearer`) e `expiresIn` (`3600`
-segundos). Use o token nas chamadas autenticadas:
-
-```sh
-curl http://localhost:3000/wallets \
-  -H 'Authorization: Bearer <accessToken>'
-
-curl 'http://localhost:3000/wallets/history?limit=20' \
-  -H 'Authorization: Bearer <accessToken>'
-
-curl -X POST http://localhost:3000/auth/logout \
-  -H 'Authorization: Bearer <accessToken>'
-```
-
-Crie uma transferência autenticada (o remetente é sempre o usuário do token):
-
-```sh
-curl -X POST http://localhost:3000/transfers \
-  -H 'Authorization: Bearer <accessToken>' \
-  -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: <uuid-gerado-pelo-cliente>' \
-  -d '{"recipientUserId":"<uuid-do-destinatario>","amountCents":"1250"}'
-```
-
-O valor deve ser uma string decimal inteira positiva, limitada ao BIGINT assinado
+O campo `amountCents` deve ser uma string decimal inteira positiva, limitada ao BIGINT assinado
 do PostgreSQL. A transferência é atômica e aparece no histórico de ambas as
 carteiras. Gere uma chave UUID por comando de transferência e reutilize exatamente
 a mesma chave ao repetir uma chamada cujo resultado seja incerto; não gere outra
@@ -148,7 +118,8 @@ O logout revoga a sessão do token utilizado.
 | `GET`  | `/wallets/history`       | Bearer       | Consultar transferências/estornos da própria carteira    |
 | `POST` | `/transfers`             | Bearer       | Transferir centavos para outro usuário                   |
 | `POST` | `/transfers/:id/reverse` | Bearer       | Compensar integralmente transferência própria concluída  |
-| `GET`  | `/`                      | Não          | Resposta de exemplo `Hello World!`; não verifica o banco |
+| `GET`  | `/health/live`           | Não          | Verificar se o processo da API está ativo                 |
+| `GET`  | `/health/ready`          | Não          | Verificar se o banco de dados está acessível              |
 
 O histórico retorna operações de transferência/estorno em ordem decrescente por
 data e identificador. Use `limit` (1–100, padrão 20) e `nextCursor` como
@@ -238,7 +209,9 @@ produção. Ao terminar, remova somente o projeto de teste criado para essa exec
 docker compose logs -f api
 ```
 
-Há logs padrão do NestJS e de falhas internas de domínio. Ainda não há logging
-estruturado ou métricas; `LOG_LEVEL` não configura o logger. Não há reconciliação
-entre operações nem reparo automático de projeções; o projeto não está pronto
-para operar dinheiro real em produção.
+As requisições geram logs JSON com identificador, rota, status e duração; falhas
+incluem código e tipo do erro, com stack trace apenas para erros de servidor. O
+`x-request-id` da resposta permite correlacionar a chamada com os logs. Os
+endpoints de saúde são públicos; `/health/ready` executa `SELECT 1` no PostgreSQL.
+Não há reconciliação entre operações nem reparo automático de projeções; o projeto
+não está pronto para operar dinheiro real em produção.
