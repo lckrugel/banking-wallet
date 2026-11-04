@@ -4,9 +4,8 @@ API REST de carteiras digitais construída como um monólito modular com event
 sourcing leve e PostgreSQL. Valores monetários são representados em centavos
 inteiros.
 
-> **Em desenvolvimento:** cadastro, autenticação e consulta de saldo estão
-> implementados. Transferências, estornos e idempotência de transferências ainda
-> não estão disponíveis, apesar de já existirem tabelas para esses fluxos.
+> **Em desenvolvimento:** cadastro, autenticação, consulta de saldo e
+> transferências estão implementados. Estornos e idempotência ainda não estão.
 > O projeto ainda não está pronto para operar dinheiro real em produção.
 
 ## Documentação e estado atual
@@ -22,7 +21,8 @@ para lacunas e próximos passos, e as [diretrizes de desenvolvimento](AGENTS.md)
 | Histórico de eventos e projeção de saldo/versão | Implementados                                       |
 | Replay/verificação da carteira                  | Internos; sem reparo automático                     |
 | Seed de desenvolvimento                         | CLI interna; não é depósito                         |
-| Transferências, idempotência e estornos         | Não implementados; tabelas preparatórias            |
+| Transferências autenticadas                     | Implementadas; sem idempotência/reexecução segura   |
+| Estornos                                         | Não implementados                                   |
 | Reconciliação entre operações                   | Não implementada                                    |
 
 ## Stack
@@ -97,6 +97,21 @@ curl -X POST http://localhost:3000/auth/logout \
   -H 'Authorization: Bearer <accessToken>'
 ```
 
+Crie uma transferência autenticada (o remetente é sempre o usuário do token):
+
+```sh
+curl -X POST http://localhost:3000/transfers \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"recipientUserId":"<uuid-do-destinatario>","amountCents":"1250"}'
+```
+
+O valor deve ser uma string decimal inteira positiva, limitada ao BIGINT assinado
+do PostgreSQL. A transferência é atômica e aparece no histórico de ambas as
+carteiras. Não há chave de idempotência: em caso de timeout/resultado incerto,
+não repita a requisição sem antes verificar o histórico, pois a repetição pode
+criar uma segunda transferência.
+
 A carteira recém-criada retorna `{"walletId":"<uuid>","balance":"0"}`.
 `balance` é uma string de centavos, não um valor em unidades monetárias.
 O logout revoga a sessão do token utilizado.
@@ -108,13 +123,14 @@ O logout revoga a sessão do token utilizado.
 | `POST` | `/auth/logout`     | Bearer       | Revogar a sessão atual                                   |
 | `GET`  | `/wallets`         | Bearer       | Consultar a própria carteira                             |
 | `GET`  | `/wallets/history` | Bearer       | Consultar transferências/estornos da própria carteira    |
+| `POST` | `/transfers`       | Bearer       | Transferir centavos para outro usuário                   |
 | `GET`  | `/`                | Não          | Resposta de exemplo `Hello World!`; não verifica o banco |
 
 O histórico retorna operações de transferência/estorno em ordem decrescente por
 data e identificador. Use `limit` (1–100, padrão 20) e `nextCursor` como
 `cursor` na próxima chamada. Valores `amountCents` são strings de centavos;
 eventos internos de criação e seed não aparecem no histórico. As rotas para
-criar transferências, estornos ou depósitos ainda não existem.
+criar estornos ou depósitos ainda não existem.
 
 ## Saldo para desenvolvimento
 
@@ -162,7 +178,7 @@ produção: os testes escrevem e removem dados. O container de teste usa `tmpfs`
 seus dados não são persistidos após sua remoção.
 
 Os testes de integração cobrem rollback, concorrência de projeções, constraints
-e divergência entre projeção e eventos. Transferências e estornos ainda não existem.
+e divergência entre projeção e eventos.
 
 `npm run test:e2e` existe, mas verifica apenas a rota `/`. Consulte o
 [plano](docs/implementation-plan.md) para as lacunas de testes.

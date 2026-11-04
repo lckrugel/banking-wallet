@@ -17,6 +17,6 @@ import { WalletHistoryService } from './wallet-history.js';
     WalletConsistencyVerifier,
     WalletHistoryService,
   ],
-  exports: [WalletService, WalletConsistencyVerifier],
+  exports: [WalletService, WalletRepository, WalletConsistencyVerifier],
 })
 export class WalletModule {}

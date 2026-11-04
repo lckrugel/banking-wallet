@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { RegistrationModule } from './registration/registration.module.js';
 import { EventsModule } from './events/events.module.js';
 import { WalletModule } from './wallet/wallet.module.js';
+import { TransfersModule } from './transfers/transfers.module.js';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { WalletModule } from './wallet/wallet.module.js';
     RegistrationModule,
     WalletModule,
     EventsModule,
+    TransfersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
