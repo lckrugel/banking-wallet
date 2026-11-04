@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UNIT_OF_WORK, type UnitOfWork } from '../database/unit-of-work.js';
 import { AuthRepository } from './auth.repository.js';
 import { PasswordHasher } from './password-hasher.service.js';
-import { UsersService } from '../users/users.service.js';
+import { UsersRepository } from '../users/users.repository.js';
 import type { AuthenticatedUser } from './auth.guard.js';
 import type { LoginResponseDto } from './dto/login-response.dto.js';
 
@@ -15,7 +15,7 @@ export class AuthService {
     @Inject(UNIT_OF_WORK) private readonly uow: UnitOfWork,
     private readonly repository: AuthRepository,
     private readonly jwt: JwtService,
-    private readonly users: UsersService,
+    private readonly users: UsersRepository,
     private readonly passwordHasher: PasswordHasher,
   ) {}
 

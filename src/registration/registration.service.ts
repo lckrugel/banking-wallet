@@ -3,12 +3,12 @@ import { PasswordHasher } from '../auth/password-hasher.service.js';
 import type { UserResponseDto } from '../users/dto/user-response.dto.js';
 import { UNIT_OF_WORK, type UnitOfWork } from '../database/unit-of-work.js';
 import { WalletService } from '../wallet/wallet.service.js';
-import { UsersService } from '../users/users.service.js';
+import { UsersRepository } from '../users/users.repository.js';
 
 @Injectable()
 export class RegistrationService {
   constructor(
-    private readonly users: UsersService,
+    private readonly users: UsersRepository,
     private readonly wallet: WalletService,
     private readonly passwordHasher: PasswordHasher,
     @Inject(UNIT_OF_WORK) private readonly uow: UnitOfWork,

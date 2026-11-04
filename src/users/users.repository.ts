@@ -29,6 +29,23 @@ export class UsersRepository {
     }
   }
 
+  async existsActiveById(
+    tx: DatabaseTransaction,
+    userId: string,
+  ): Promise<boolean> {
+    const [user] = await tx
+      .select({ id: schema.usersTable.id })
+      .from(schema.usersTable)
+      .where(
+        and(
+          eq(schema.usersTable.id, userId),
+          isNull(schema.usersTable.deletedAt),
+        ),
+      )
+      .limit(1);
+    return user !== undefined;
+  }
+
   async findByEmail(tx: DatabaseTransaction, email: string) {
     const [user] = await tx
       .select()

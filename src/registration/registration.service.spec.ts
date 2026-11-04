@@ -1,7 +1,7 @@
 import type { DatabaseTransaction } from '../database/database.types.js';
 import type { UnitOfWork } from '../database/unit-of-work.js';
 import { PasswordHasher } from '../auth/password-hasher.service.js';
-import { UsersService } from '../users/users.service.js';
+import { UsersRepository } from '../users/users.repository.js';
 import { WalletService } from '../wallet/wallet.service.js';
 import { RegistrationService } from './registration.service.js';
 
@@ -20,7 +20,7 @@ describe('RegistrationService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     service = new RegistrationService(
-      users as unknown as UsersService,
+      users as unknown as UsersRepository,
       wallet as unknown as WalletService,
       passwordHasher as unknown as PasswordHasher,
       uow as unknown as UnitOfWork,
