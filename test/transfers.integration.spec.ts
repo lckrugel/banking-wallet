@@ -242,4 +242,78 @@ describe('transfers (PostgreSQL)', () => {
     expect(failure[0].reason).toBeInstanceOf(IdempotencyKeyReused);
     transferIds.push(success[0].value.id);
   });
+
+  it('reverses a completed transfer as a separate linked operation and replays it idempotently', async () => {
+    const sender = await createWallet(500n);
+    const receiver = await createWallet(100n);
+    const createKey = randomUUID();
+    const original = await transfers.create(sender.user.id, receiver.user.id, '200', createKey);
+    const originalEvents = await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, original.id));
+    await transfers.create(receiver.user.id, (await createWallet()).user.id, '40', randomUUID());
+    const key = randomUUID();
+    const reversal = await transfers.reverse(sender.user.id, original.id, key);
+    transferIds.push(reversal.id);
+    expect(reversal).toMatchObject({ senderWallet: receiver.wallet.id, receiverWallet: sender.wallet.id, amountCents: '200', reversalOf: original.id });
+    const [from] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, sender.wallet.id));
+    const [to] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, receiver.wallet.id));
+    const [storedOriginal] = await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.id, original.id));
+    expect([from.balanceCents, to.balanceCents, storedOriginal.status]).toEqual([500n, 60n, 'REVERSED']);
+    const reversalEvents = await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, reversal.id));
+    expect(reversalEvents).toHaveLength(2);
+    expect(await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, original.id))).toEqual(originalEvents);
+    expect(await transfers.reverse(sender.user.id, original.id, key)).toEqual(reversal);
+    expect(await transfers.create(sender.user.id, receiver.user.id, '200', createKey)).toEqual(original);
+    await expect(transfers.reverse(receiver.user.id, original.id, randomUUID())).rejects.toMatchObject({ code: 'TRANSFER_NOT_FOUND' });
+    await expect(transfers.reverse(receiver.user.id, reversal.id, randomUUID())).rejects.toMatchObject({ code: 'TRANSFER_NOT_REVERSIBLE' });
+  });
+
+  it('rejects reversal when receiver funds have been spent and makes no partial writes', async () => {
+    const sender = await createWallet(100n);
+    const receiver = await createWallet();
+    const destination = await createWallet();
+    const original = await transfers.create(sender.user.id, receiver.user.id, '80', randomUUID());
+    await transfers.create(receiver.user.id, destination.user.id, '80', randomUUID());
+    await expect(transfers.reverse(sender.user.id, original.id, randomUUID())).rejects.toBeInstanceOf(InsufficientFunds);
+    const [row] = await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.id, original.id));
+    expect(row.status).toBe('COMPLETED');
+    expect(await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.reversalOf, original.id))).toHaveLength(0);
+  });
+
+  it('allows only one effective concurrent reversal and rejects a distinct subsequent key', async () => {
+    const sender = await createWallet(100n);
+    const receiver = await createWallet();
+    const original = await transfers.create(sender.user.id, receiver.user.id, '30', randomUUID());
+    const outcomes = await Promise.allSettled([
+      transfers.reverse(sender.user.id, original.id, randomUUID()),
+      transfers.reverse(sender.user.id, original.id, randomUUID()),
+    ]);
+    expect(outcomes.filter((item) => item.status === 'fulfilled')).toHaveLength(1);
+    expect(outcomes.filter((item) => item.status === 'rejected')).toHaveLength(1);
+    const reversal = (outcomes.find((item) => item.status === 'fulfilled') as PromiseFulfilledResult<Awaited<ReturnType<typeof transfers.reverse>>>).value;
+    transferIds.push(reversal.id);
+    await expect(transfers.reverse(sender.user.id, original.id, randomUUID())).rejects.toThrow();
+  });
+
+  it('rolls back reversal, original status, projections, events and key on append failure', async () => {
+    const sender = await createWallet(100n);
+    const receiver = await createWallet();
+    const original = await transfers.create(sender.user.id, receiver.user.id, '30', randomUUID());
+    const originalEvents = await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, original.id));
+    let appends = 0;
+    const failingEvents = { append: (...args: Parameters<EventsService['append']>) => {
+      appends += 1;
+      if (appends === 2) throw new Error('forced reversal append failure');
+      return events.append(...args);
+    } } as EventsService;
+    const failingService = new TransfersService(uow, wallets, failingEvents, idempotency, transferRepository);
+    const key = randomUUID();
+    await expect(failingService.reverse(sender.user.id, original.id, key)).rejects.toThrow('forced reversal append failure');
+    const [unchanged] = await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.id, original.id));
+    expect(unchanged.status).toBe('COMPLETED');
+    expect(await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.reversalOf, original.id))).toHaveLength(0);
+    expect(await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, original.id))).toEqual(originalEvents);
+    const retry = await transfers.reverse(sender.user.id, original.id, key);
+    transferIds.push(retry.id);
+    expect(retry.reversalOf).toBe(original.id);
+  });
 });

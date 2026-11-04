@@ -22,4 +22,13 @@ describe('TransfersController', () => {
       .toThrow(BadRequestException);
     expect(transfers.create).not.toHaveBeenCalled();
   });
+
+  it('validates and normalizes reverse IDs and keys', async () => {
+    const transfers = { reverse: vi.fn().mockReturnValue({ id: 'reversal' }) };
+    const controller = new TransfersController(transfers as never);
+    await controller.reverse({ id: 'authenticated-sender' } as never, 'AABBCCDD-0000-4000-8000-000000000001', 'AABBCCDD-0000-4000-8000-000000000002');
+    expect(transfers.reverse).toHaveBeenCalledWith('authenticated-sender', 'aabbccdd-0000-4000-8000-000000000001', 'aabbccdd-0000-4000-8000-000000000002');
+    expect(() => controller.reverse({ id: 'user' } as never, 'invalid', 'aabbccdd-0000-4000-8000-000000000002')).toThrow(BadRequestException);
+    expect(() => controller.reverse({ id: 'user' } as never, 'aabbccdd-0000-4000-8000-000000000001', undefined)).toThrow(BadRequestException);
+  });
 });
