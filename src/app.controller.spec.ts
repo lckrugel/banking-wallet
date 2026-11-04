@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
+import { getDrizzleToken } from '@nestjs/drizzle';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -8,15 +8,19 @@ describe('AppController', () => {
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [{ provide: getDrizzleToken(), useValue: { execute: vi.fn().mockResolvedValue([{ '?column?': 1 }]) } }],
     }).compile();
 
     appController = app.get<AppController>(AppController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+  describe('health', () => {
+    it('reports the application as live', () => {
+      expect(appController.live()).toEqual({ status: 'ok' });
+    });
+
+    it('checks database readiness', async () => {
+      await expect(appController.ready()).resolves.toEqual({ status: 'ok' });
     });
   });
 });
