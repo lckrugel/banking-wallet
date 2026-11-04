@@ -25,6 +25,7 @@ flowchart LR
 | `auth`         | Hash de senha com Argon2id, JWT, sessões persistidas e logout.        |
 | `users`        | Persistência e busca de usuários.                                     |
 | `wallet`       | Regras de saldo, projeção, consulta e replay/verificação da carteira. |
+| `transfers`    | Transferências e estornos transacionais, autorização e idempotência.  |
 | `events`       | Validação de sequência e persistência de eventos de carteira.         |
 | `database`     | Schema Drizzle, conexão, Unit of Work e ferramenta interna de seed.   |
 | `common`       | Erros de domínio e tradução para respostas HTTP.                      |
@@ -37,13 +38,31 @@ flowchart LR
 - `events` guarda o histórico append-only **por convenção da aplicação**; cada
   carteira tem versões sequenciais. Os valores são centavos inteiros (`bigint`),
   serializados como strings no JSON.
-- `transfers` e `idempotency_keys` existem no schema como preparação, mas ainda
-  não são usados por casos de uso.
+- `transfers` registra transferências e compensações. `reversal_of` vincula um
+  estorno à operação original e é único, impedindo duas compensações para ela.
+- `idempotency_keys` reserva comandos por usuário e chave, com fingerprint do
+  pedido. Reserva, operação, saldos e eventos são confirmados na mesma transação.
 
 O domínio `Wallet` aplica regras monetárias sem depender de NestJS ou Drizzle.
 Repositories encapsulam consultas. O Unit of Work compartilha uma transação Drizzle
 entre escritas relacionadas. Ao persistir uma alteração, a projeção é atualizada
 com comparação de versão; eventos e projeção devem ser gravados na mesma transação.
+
+`TransfersService` mantém as regras específicas em `create` e `reverse`. A reserva
+ou recuperação da idempotência é compartilhada por `resolveIdempotency`, e
+`moveFunds` concentra locks, débito, crédito e criação da operação. Ambos usam
+`WalletService.persistChanges` para gravar projeção e eventos, recebendo a transação
+do comando, sem abrir transações aninhadas.
+
+Transferências e estornos bloqueiam as carteiras com `FOR UPDATE`, em ordem de ID,
+antes de calcular os novos saldos. Essa ordem reduz o risco de deadlocks entre
+movimentações em sentidos opostos. A comparação de versão também protege escritores
+otimistas, como o seed, e mantém a sequência dos eventos alinhada à projeção.
+
+No estorno, a transferência original é bloqueada antes da validação de elegibilidade.
+Esse lock serializa solicitações com chaves diferentes; a chave de idempotência
+protege repetições do mesmo comando. A constraint única em `reversal_of` é a
+garantia adicional de no máximo uma compensação por transferência.
 
 O replay e `WalletConsistencyVerifier` comparam o saldo/versão da projeção com o
 histórico de uma carteira. A verificação é interna e não repara dados. Ela não
@@ -54,12 +73,31 @@ reconcilia operações entre carteiras nem garante conservação global de fundo
 - `POST /users`: cadastra usuário e carteira de saldo zero atomicamente.
 - `POST /auth/login` e `POST /auth/logout`: emitem e revogam sessão.
 - `GET /wallets`: retorna a carteira do usuário autenticado.
+- `GET /wallets/history`: consulta operações em `transfers`, não o stream de eventos.
+- `POST /transfers`: transfere centavos do usuário autenticado para outro usuário.
+- `POST /transfers/:id/reverse`: compensa integralmente uma transferência própria.
 - CLI `db:seed-wallet`: adiciona fundos de desenvolvimento por referência
   idempotente; não é integração de depósito.
+
+Uma falha antes do commit desfaz todas as escritas por rollback. Após o commit,
+o estorno é uma nova operação no sentido inverso, autorizada somente ao remetente
+original. Não há estorno parcial nem de outro estorno. Se o destinatário não tiver
+saldo suficiente, a solicitação falha sem efeitos parciais.
+
+Os eventos originais nunca são alterados. O status do registro da transferência
+original muda para `REVERSED` na mesma transação que cria a compensação.
+Isso não viola a imutabilidade do histórico de eventos da carteira.
+
+Uma retentativa com a mesma chave e comando normalizado reproduz a resposta de
+criação, mesmo se a operação já tiver sido estornada. Por isso essa resposta mantém
+`COMPLETED`, enquanto o histórico retorna o status atual `REVERSED`. Reutilizar a
+chave para outro comando, inclusive entre criação e estorno, retorna conflito.
 
 O guard valida JWT e sessão persistida em cada chamada autenticada. A validação
 global de DTOs rejeita campos não declarados. Erros conhecidos recebem respostas
 controladas; detalhes do banco não são enviados ao cliente.
+`configureApp`, em `src/app.setup.ts`, aplica o mesmo filtro de erros e pipe de
+validação no bootstrap da API e nos testes E2E.
 
 ## Limites arquiteturais
 

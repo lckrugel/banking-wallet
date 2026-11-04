@@ -1,7 +1,7 @@
 import { JwtService } from '@nestjs/jwt';
 import type { DatabaseTransaction } from '../database/database.types.js';
 import type { UnitOfWork } from '../database/unit-of-work.js';
-import { UsersService } from '../users/users.service.js';
+import { UsersRepository } from '../users/users.repository.js';
 import { AuthRepository } from './auth.repository.js';
 import { PasswordHasher } from './password-hasher.service.js';
 import { AuthService } from './auth.service.js';
@@ -29,7 +29,7 @@ describe('AuthService', () => {
       uow as unknown as UnitOfWork,
       repository as unknown as AuthRepository,
       jwt as unknown as JwtService,
-      users as unknown as UsersService,
+      users as unknown as UsersRepository,
       passwordHasher as unknown as PasswordHasher,
     );
   });

@@ -32,34 +32,66 @@ describe('transfers (PostgreSQL)', () => {
   const wallets = new WalletRepository();
   const eventRepository = new EventsRepository();
   const events = new EventsService(eventRepository);
-  const walletService = new WalletService(uow, wallets, eventRepository, events);
-  const consistencyVerifier = new WalletConsistencyVerifier(uow, wallets, eventRepository);
+  const walletService = new WalletService(
+    uow,
+    wallets,
+    eventRepository,
+    events,
+  );
+  const consistencyVerifier = new WalletConsistencyVerifier(
+    uow,
+    wallets,
+    eventRepository,
+  );
   const idempotency = new IdempotencyRepository();
   const transferRepository = new TransfersRepository();
-  const transfers = new TransfersService(uow, wallets, events, idempotency, transferRepository);
+  const transfers = new TransfersService(
+    uow,
+    wallets,
+    walletService,
+    idempotency,
+    transferRepository,
+    users,
+  );
   const userIds: string[] = [];
   const walletIds: string[] = [];
   const transferIds: string[] = [];
 
   beforeAll(async () => {
     if (!process.env.PG_USER || !process.env.PG_PASSWORD || !process.env.PG_DB)
-      throw new Error('Set PG_USER, PG_PASSWORD and PG_DB for integration tests');
+      throw new Error(
+        'Set PG_USER, PG_PASSWORD and PG_DB for integration tests',
+      );
     await pool.query('SELECT 1');
   });
 
   afterEach(async () => {
     for (const walletId of walletIds) {
-      await db.delete(schema.eventsTable).where(eq(schema.eventsTable.aggregateId, walletId));
+      await db
+        .delete(schema.eventsTable)
+        .where(eq(schema.eventsTable.aggregateId, walletId));
     }
     if (walletIds.length) {
-      await db.delete(schema.tranfersTable).where(or(
-        inArray(schema.tranfersTable.senderWallet, walletIds),
-        inArray(schema.tranfersTable.receiverWallet, walletIds),
-      ));
-      await db.delete(schema.walletsTable).where(inArray(schema.walletsTable.id, walletIds));
+      await db
+        .delete(schema.tranfersTable)
+        .where(
+          or(
+            inArray(schema.tranfersTable.senderWallet, walletIds),
+            inArray(schema.tranfersTable.receiverWallet, walletIds),
+          ),
+        );
+      await db
+        .delete(schema.walletsTable)
+        .where(inArray(schema.walletsTable.id, walletIds));
     }
-    if (userIds.length) await db.delete(schema.idempotencyKeysTable).where(inArray(schema.idempotencyKeysTable.userId, userIds));
-    if (userIds.length) await db.delete(schema.usersTable).where(inArray(schema.usersTable.id, userIds));
+    if (userIds.length)
+      await db
+        .delete(schema.idempotencyKeysTable)
+        .where(inArray(schema.idempotencyKeysTable.userId, userIds));
+    if (userIds.length)
+      await db
+        .delete(schema.usersTable)
+        .where(inArray(schema.usersTable.id, userIds));
     transferIds.length = 0;
     walletIds.length = 0;
     userIds.length = 0;
@@ -70,50 +102,149 @@ describe('transfers (PostgreSQL)', () => {
   async function createWallet(balance = 0n) {
     const result = await uow.execute(async (tx) => {
       const user = await users.create(tx, {
-        email: `${randomUUID()}@example.test`, password: 'test-hash', name: 'Transfer Integration',
+        email: `${randomUUID()}@example.test`,
+        password: 'test-hash',
+        name: 'Transfer Integration',
       });
       userIds.push(user.id);
       const wallet = await walletService.createForUser(tx, user.id);
       walletIds.push(wallet.id);
       return { user, wallet };
     });
-    if (balance) await walletService.seedUserWallet(result.user.id, balance, `test-${randomUUID()}`);
+    if (balance)
+      await walletService.seedUserWallet(
+        result.user.id,
+        balance,
+        `test-${randomUUID()}`,
+      );
     return result;
   }
 
   it('persists transfer, both projections and two operation-linked events with coherent versions', async () => {
     const sender = await createWallet(500n);
     const receiver = await createWallet(25n);
-    const transfer = await transfers.create(sender.user.id, receiver.user.id, '125', randomUUID());
+    const transfer = await transfers.create(
+      sender.user.id,
+      receiver.user.id,
+      '125',
+      randomUUID(),
+    );
     transferIds.push(transfer.id);
 
-    const [from] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, sender.wallet.id));
-    const [to] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, receiver.wallet.id));
-    const [operation] = await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.id, transfer.id));
-    const operationEvents = await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, transfer.id));
+    const [from] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, sender.wallet.id));
+    const [to] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, receiver.wallet.id));
+    const [operation] = await db
+      .select()
+      .from(schema.tranfersTable)
+      .where(eq(schema.tranfersTable.id, transfer.id));
+    const operationEvents = await db
+      .select()
+      .from(schema.eventsTable)
+      .where(eq(schema.eventsTable.operationId, transfer.id));
 
     expect(from).toMatchObject({ balanceCents: 375n, version: 3 });
     expect(to).toMatchObject({ balanceCents: 150n, version: 3 });
     expect(from.balanceCents + to.balanceCents).toBe(525n);
-    expect(operation).toMatchObject({ senderWallet: sender.wallet.id, receiverWallet: receiver.wallet.id, amountCents: 125n });
+    expect(operation).toMatchObject({
+      senderWallet: sender.wallet.id,
+      receiverWallet: receiver.wallet.id,
+      amountCents: 125n,
+    });
     expect(operation?.idempotencyKeyId).toBeTruthy();
     expect(operationEvents).toHaveLength(2);
-    expect(operationEvents.map((event) => event.eventType).sort((a, b) => a.localeCompare(b))).toEqual(['FUNDS_CREDITED', 'FUNDS_DEBITED']);
-    expect(operationEvents.every((event) => event.operationId === transfer.id)).toBe(true);
-    expect(operationEvents.map((event) => event.version).sort((a, b) => a - b)).toEqual([3, 3]);
+    expect(
+      operationEvents
+        .map((event) => event.eventType)
+        .sort((a, b) => a.localeCompare(b)),
+    ).toEqual(['FUNDS_CREDITED', 'FUNDS_DEBITED']);
+    expect(
+      operationEvents.every((event) => event.operationId === transfer.id),
+    ).toBe(true);
+    expect(
+      operationEvents.map((event) => event.version).sort((a, b) => a - b),
+    ).toEqual([3, 3]);
+  });
+
+  it('preserves bigint cents beyond JavaScript safe integers through typed locks and reversal', async () => {
+    const initialBalance = 9007199254740993n;
+    const amount = 9007199254740992n;
+    const sender = await createWallet(initialBalance);
+    const receiver = await createWallet();
+
+    const original = await transfers.create(
+      sender.user.id,
+      receiver.user.id,
+      amount.toString(),
+      randomUUID(),
+    );
+    expect(original.amountCents).toBe(amount.toString());
+    const [from] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, sender.wallet.id));
+    const [to] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, receiver.wallet.id));
+    expect([from.balanceCents, to.balanceCents]).toEqual([1n, amount]);
+
+    const reversal = await transfers.reverse(
+      sender.user.id,
+      original.id,
+      randomUUID(),
+    );
+    expect(reversal.amountCents).toBe(amount.toString());
+    expect(await consistencyVerifier.verify(sender.wallet.id)).toMatchObject({
+      consistent: true,
+      balanceCents: initialBalance.toString(),
+    });
+    expect(await consistencyVerifier.verify(receiver.wallet.id)).toMatchObject({
+      consistent: true,
+      balanceCents: '0',
+    });
   });
 
   it('rejects insufficient funds without persisting any part of the transfer', async () => {
     const sender = await createWallet(50n);
     const receiver = await createWallet(7n);
-    await expect(transfers.create(sender.user.id, receiver.user.id, '51', randomUUID())).rejects.toBeInstanceOf(InsufficientFunds);
-    const [from] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, sender.wallet.id));
-    const [to] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, receiver.wallet.id));
-    expect([from.balanceCents, from.version, to.balanceCents, to.version]).toEqual([50n, 2, 7n, 2]);
-    expect(await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.senderWallet, sender.wallet.id))).toHaveLength(0);
-    const walletEvents = await db.select().from(schema.eventsTable).where(or(
-      eq(schema.eventsTable.aggregateId, sender.wallet.id), eq(schema.eventsTable.aggregateId, receiver.wallet.id),
-    ));
+    await expect(
+      transfers.create(sender.user.id, receiver.user.id, '51', randomUUID()),
+    ).rejects.toBeInstanceOf(InsufficientFunds);
+    const [from] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, sender.wallet.id));
+    const [to] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, receiver.wallet.id));
+    expect([
+      from.balanceCents,
+      from.version,
+      to.balanceCents,
+      to.version,
+    ]).toEqual([50n, 2, 7n, 2]);
+    expect(
+      await db
+        .select()
+        .from(schema.tranfersTable)
+        .where(eq(schema.tranfersTable.senderWallet, sender.wallet.id)),
+    ).toHaveLength(0);
+    const walletEvents = await db
+      .select()
+      .from(schema.eventsTable)
+      .where(
+        or(
+          eq(schema.eventsTable.aggregateId, sender.wallet.id),
+          eq(schema.eventsTable.aggregateId, receiver.wallet.id),
+        ),
+      );
     expect(walletEvents).toHaveLength(4);
   });
 
@@ -128,18 +259,60 @@ describe('transfers (PostgreSQL)', () => {
         return events.append(...args);
       },
     } as EventsService;
-    const failingTransfers = new TransfersService(uow, wallets, failOnSecondAppend, idempotency, transferRepository);
+    const failingWalletService = new WalletService(
+      uow,
+      wallets,
+      eventRepository,
+      failOnSecondAppend,
+    );
+    const failingTransfers = new TransfersService(
+      uow,
+      wallets,
+      failingWalletService,
+      idempotency,
+      transferRepository,
+      users,
+    );
     const key = randomUUID();
-    await expect(failingTransfers.create(sender.user.id, receiver.user.id, '40', key)).rejects.toThrow('forced event append failure');
-    const retried = await transfers.create(sender.user.id, receiver.user.id, '40', key);
+    await expect(
+      failingTransfers.create(sender.user.id, receiver.user.id, '40', key),
+    ).rejects.toThrow('forced event append failure');
+    const retried = await transfers.create(
+      sender.user.id,
+      receiver.user.id,
+      '40',
+      key,
+    );
     transferIds.push(retried.id);
-    const [from] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, sender.wallet.id));
-    const [to] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, receiver.wallet.id));
-    expect([from.balanceCents, from.version, to.balanceCents, to.version]).toEqual([160n, 3, 50n, 3]);
-    expect(await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.senderWallet, sender.wallet.id))).toHaveLength(1);
-    const bothEvents = await db.select().from(schema.eventsTable).where(or(
-      eq(schema.eventsTable.aggregateId, sender.wallet.id), eq(schema.eventsTable.aggregateId, receiver.wallet.id),
-    ));
+    const [from] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, sender.wallet.id));
+    const [to] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, receiver.wallet.id));
+    expect([
+      from.balanceCents,
+      from.version,
+      to.balanceCents,
+      to.version,
+    ]).toEqual([160n, 3, 50n, 3]);
+    expect(
+      await db
+        .select()
+        .from(schema.tranfersTable)
+        .where(eq(schema.tranfersTable.senderWallet, sender.wallet.id)),
+    ).toHaveLength(1);
+    const bothEvents = await db
+      .select()
+      .from(schema.eventsTable)
+      .where(
+        or(
+          eq(schema.eventsTable.aggregateId, sender.wallet.id),
+          eq(schema.eventsTable.aggregateId, receiver.wallet.id),
+        ),
+      );
     expect(bothEvents).toHaveLength(6);
   });
 
@@ -151,16 +324,30 @@ describe('transfers (PostgreSQL)', () => {
       transfers.create(sender.user.id, receiverA.user.id, '80', randomUUID()),
       transfers.create(sender.user.id, receiverB.user.id, '80', randomUUID()),
     ]);
-    const successful = outcomes.filter((outcome) => outcome.status === 'fulfilled');
+    const successful = outcomes.filter(
+      (outcome) => outcome.status === 'fulfilled',
+    );
     const failed = outcomes.filter((outcome) => outcome.status === 'rejected');
     expect(successful).toHaveLength(1);
     expect(failed).toHaveLength(1);
-    expect((failed[0] as PromiseRejectedResult).reason).toBeInstanceOf(InsufficientFunds);
-    const [from] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, sender.wallet.id));
+    expect((failed[0] as PromiseRejectedResult).reason).toBeInstanceOf(
+      InsufficientFunds,
+    );
+    const [from] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, sender.wallet.id));
     expect(from.balanceCents).toBe(20n);
     expect(from.version).toBe(3);
-    expect(await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.senderWallet, sender.wallet.id))).toHaveLength(1);
-    const persistedEvents = await uow.execute((tx) => eventRepository.findWalletEvents(tx, sender.wallet.id));
+    expect(
+      await db
+        .select()
+        .from(schema.tranfersTable)
+        .where(eq(schema.tranfersTable.senderWallet, sender.wallet.id)),
+    ).toHaveLength(1);
+    const persistedEvents = await uow.execute((tx) =>
+      eventRepository.findWalletEvents(tx, sender.wallet.id),
+    );
     expect(persistedEvents.map((event) => event.version)).toEqual([1, 2, 3]);
   });
 
@@ -172,15 +359,31 @@ describe('transfers (PostgreSQL)', () => {
       transfers.create(b.user.id, a.user.id, '150', randomUUID()),
     ]);
     transferIds.push(...outcomes.map((transfer) => transfer.id));
-    const [walletA] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, a.wallet.id));
-    const [walletB] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, b.wallet.id));
+    const [walletA] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, a.wallet.id));
+    const [walletB] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, b.wallet.id));
     expect(walletA.balanceCents + walletB.balanceCents).toBe(1000n);
     expect([walletA.balanceCents, walletA.version]).toEqual([550n, 4]);
     expect([walletB.balanceCents, walletB.version]).toEqual([450n, 4]);
-    const linked = await db.select().from(schema.eventsTable).where(inArray(schema.eventsTable.operationId, outcomes.map((item) => item.id)));
+    const linked = await db
+      .select()
+      .from(schema.eventsTable)
+      .where(
+        inArray(
+          schema.eventsTable.operationId,
+          outcomes.map((item) => item.id),
+        ),
+      );
     expect(linked).toHaveLength(4);
     for (const transfer of outcomes) {
-      expect(linked.filter((event) => event.operationId === transfer.id)).toHaveLength(2);
+      expect(
+        linked.filter((event) => event.operationId === transfer.id),
+      ).toHaveLength(2);
     }
   });
 
@@ -188,18 +391,58 @@ describe('transfers (PostgreSQL)', () => {
     const sender = await createWallet(100n);
     const receiver = await createWallet();
     const key = randomUUID();
-    const original = await transfers.create(sender.user.id, receiver.user.id, '80', key);
+    const original = await transfers.create(
+      sender.user.id,
+      receiver.user.id,
+      '80',
+      key,
+    );
     transferIds.push(original.id);
-    const replayService = new TransfersService(uow, wallets, events, idempotency, transferRepository);
-    const replay = await replayService.create(sender.user.id, receiver.user.id, '080', key.toUpperCase());
+    const replayService = new TransfersService(
+      uow,
+      wallets,
+      walletService,
+      idempotency,
+      transferRepository,
+      users,
+    );
+    const replay = await replayService.create(
+      sender.user.id,
+      receiver.user.id,
+      '080',
+      key.toUpperCase(),
+    );
     expect(replay).toEqual(original);
-    const [from] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, sender.wallet.id));
-    const [to] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, receiver.wallet.id));
-    expect([from.balanceCents, from.version, to.balanceCents, to.version]).toEqual([20n, 3, 80n, 2]);
-    expect(await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.senderWallet, sender.wallet.id))).toHaveLength(1);
-    expect(await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, original.id))).toHaveLength(2);
+    const [from] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, sender.wallet.id));
+    const [to] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, receiver.wallet.id));
+    expect([
+      from.balanceCents,
+      from.version,
+      to.balanceCents,
+      to.version,
+    ]).toEqual([20n, 3, 80n, 2]);
+    expect(
+      await db
+        .select()
+        .from(schema.tranfersTable)
+        .where(eq(schema.tranfersTable.senderWallet, sender.wallet.id)),
+    ).toHaveLength(1);
+    expect(
+      await db
+        .select()
+        .from(schema.eventsTable)
+        .where(eq(schema.eventsTable.operationId, original.id)),
+    ).toHaveLength(2);
     // A retry must work even though re-executing the debit would now fail.
-    expect((await transfers.create(sender.user.id, receiver.user.id, '80', key)).id).toBe(original.id);
+    expect(
+      (await transfers.create(sender.user.id, receiver.user.id, '80', key)).id,
+    ).toBe(original.id);
   });
 
   it('scopes keys per user and conflicts when one user changes the command', async () => {
@@ -208,11 +451,23 @@ describe('transfers (PostgreSQL)', () => {
     const other = await createWallet(100n);
     const otherRecipient = await createWallet();
     const key = randomUUID();
-    const first = await transfers.create(sender.user.id, recipient.user.id, '10', key);
+    const first = await transfers.create(
+      sender.user.id,
+      recipient.user.id,
+      '10',
+      key,
+    );
     transferIds.push(first.id);
-    const independentlyScoped = await transfers.create(other.user.id, otherRecipient.user.id, '10', key);
+    const independentlyScoped = await transfers.create(
+      other.user.id,
+      otherRecipient.user.id,
+      '10',
+      key,
+    );
     transferIds.push(independentlyScoped.id);
-    await expect(transfers.create(sender.user.id, recipient.user.id, '11', key)).rejects.toBeInstanceOf(IdempotencyKeyReused);
+    await expect(
+      transfers.create(sender.user.id, recipient.user.id, '11', key),
+    ).rejects.toBeInstanceOf(IdempotencyKeyReused);
   });
 
   it('allows only one concurrent identical request to execute', async () => {
@@ -225,7 +480,12 @@ describe('transfers (PostgreSQL)', () => {
     ]);
     expect(a).toEqual(b);
     transferIds.push(a.id);
-    expect(await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.senderWallet, sender.wallet.id))).toHaveLength(1);
+    expect(
+      await db
+        .select()
+        .from(schema.tranfersTable)
+        .where(eq(schema.tranfersTable.senderWallet, sender.wallet.id)),
+    ).toHaveLength(1);
   });
 
   it('makes concurrent different commands for a key resolve as one success and one conflict', async () => {
@@ -237,8 +497,12 @@ describe('transfers (PostgreSQL)', () => {
       transfers.create(sender.user.id, a.user.id, '20', key),
       transfers.create(sender.user.id, b.user.id, '30', key),
     ]);
-    const success = outcomes.filter((item) => item.status === 'fulfilled') as PromiseFulfilledResult<Awaited<ReturnType<typeof transfers.create>>>[];
-    const failure = outcomes.filter((item) => item.status === 'rejected') as PromiseRejectedResult[];
+    const success = outcomes.filter(
+      (item) => item.status === 'fulfilled',
+    ) as PromiseFulfilledResult<Awaited<ReturnType<typeof transfers.create>>>[];
+    const failure = outcomes.filter(
+      (item) => item.status === 'rejected',
+    ) as PromiseRejectedResult[];
     expect(success).toHaveLength(1);
     expect(failure).toHaveLength(1);
     expect(failure[0].reason).toBeInstanceOf(IdempotencyKeyReused);
@@ -249,79 +513,337 @@ describe('transfers (PostgreSQL)', () => {
     const sender = await createWallet(500n);
     const receiver = await createWallet(100n);
     const createKey = randomUUID();
-    const original = await transfers.create(sender.user.id, receiver.user.id, '200', createKey);
-    const originalEvents = await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, original.id));
-    await transfers.create(receiver.user.id, (await createWallet()).user.id, '40', randomUUID());
+    const original = await transfers.create(
+      sender.user.id,
+      receiver.user.id,
+      '200',
+      createKey,
+    );
+    const originalEvents = await db
+      .select()
+      .from(schema.eventsTable)
+      .where(eq(schema.eventsTable.operationId, original.id));
+    await transfers.create(
+      receiver.user.id,
+      (await createWallet()).user.id,
+      '40',
+      randomUUID(),
+    );
     const key = randomUUID();
     const reversal = await transfers.reverse(sender.user.id, original.id, key);
     transferIds.push(reversal.id);
-    expect(reversal).toMatchObject({ senderWallet: receiver.wallet.id, receiverWallet: sender.wallet.id, amountCents: '200', reversalOf: original.id });
-    const [from] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, sender.wallet.id));
-    const [to] = await db.select().from(schema.walletsTable).where(eq(schema.walletsTable.id, receiver.wallet.id));
-    const [storedOriginal] = await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.id, original.id));
-    expect([from.balanceCents, to.balanceCents, storedOriginal.status]).toEqual([500n, 60n, 'REVERSED']);
-    const reversalEvents = await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, reversal.id));
+    expect(reversal).toMatchObject({
+      senderWallet: receiver.wallet.id,
+      receiverWallet: sender.wallet.id,
+      amountCents: '200',
+      reversalOf: original.id,
+    });
+    const [from] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, sender.wallet.id));
+    const [to] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, receiver.wallet.id));
+    const [storedOriginal] = await db
+      .select()
+      .from(schema.tranfersTable)
+      .where(eq(schema.tranfersTable.id, original.id));
+    expect([from.balanceCents, to.balanceCents, storedOriginal.status]).toEqual(
+      [500n, 60n, 'REVERSED'],
+    );
+    const reversalEvents = await db
+      .select()
+      .from(schema.eventsTable)
+      .where(eq(schema.eventsTable.operationId, reversal.id));
     expect(reversalEvents).toHaveLength(2);
-    expect(await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, original.id))).toEqual(originalEvents);
+    expect(
+      await db
+        .select()
+        .from(schema.eventsTable)
+        .where(eq(schema.eventsTable.operationId, original.id)),
+    ).toEqual(originalEvents);
     const [senderReplay, receiverReplay] = await Promise.all([
       consistencyVerifier.verify(sender.wallet.id),
       consistencyVerifier.verify(receiver.wallet.id),
     ]);
-    expect(senderReplay).toMatchObject({ consistent: true, balanceCents: from.balanceCents.toString(), version: from.version });
-    expect(receiverReplay).toMatchObject({ consistent: true, balanceCents: to.balanceCents.toString(), version: to.version });
-    expect(await transfers.reverse(sender.user.id, original.id, key)).toEqual(reversal);
-    expect(await transfers.create(sender.user.id, receiver.user.id, '200', createKey)).toEqual(original);
-    await expect(transfers.reverse(receiver.user.id, original.id, randomUUID())).rejects.toMatchObject({ code: 'TRANSFER_NOT_FOUND' });
-    await expect(transfers.reverse(receiver.user.id, reversal.id, randomUUID())).rejects.toMatchObject({ code: 'TRANSFER_NOT_REVERSIBLE' });
+    expect(senderReplay).toMatchObject({
+      consistent: true,
+      balanceCents: from.balanceCents.toString(),
+      version: from.version,
+    });
+    expect(receiverReplay).toMatchObject({
+      consistent: true,
+      balanceCents: to.balanceCents.toString(),
+      version: to.version,
+    });
+    expect(await transfers.reverse(sender.user.id, original.id, key)).toEqual(
+      reversal,
+    );
+    expect(
+      await transfers.create(
+        sender.user.id,
+        receiver.user.id,
+        '200',
+        createKey,
+      ),
+    ).toEqual(original);
+    await expect(
+      transfers.reverse(receiver.user.id, original.id, randomUUID()),
+    ).rejects.toMatchObject({ code: 'TRANSFER_NOT_FOUND' });
+    await expect(
+      transfers.reverse(receiver.user.id, reversal.id, randomUUID()),
+    ).rejects.toMatchObject({ code: 'TRANSFER_NOT_REVERSIBLE' });
   });
 
   it('rejects reversal when receiver funds have been spent and makes no partial writes', async () => {
     const sender = await createWallet(100n);
     const receiver = await createWallet();
     const destination = await createWallet();
-    const original = await transfers.create(sender.user.id, receiver.user.id, '80', randomUUID());
-    await transfers.create(receiver.user.id, destination.user.id, '80', randomUUID());
-    await expect(transfers.reverse(sender.user.id, original.id, randomUUID())).rejects.toBeInstanceOf(InsufficientFunds);
-    const [row] = await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.id, original.id));
+    const original = await transfers.create(
+      sender.user.id,
+      receiver.user.id,
+      '80',
+      randomUUID(),
+    );
+    await transfers.create(
+      receiver.user.id,
+      destination.user.id,
+      '80',
+      randomUUID(),
+    );
+    await expect(
+      transfers.reverse(sender.user.id, original.id, randomUUID()),
+    ).rejects.toBeInstanceOf(InsufficientFunds);
+    const [row] = await db
+      .select()
+      .from(schema.tranfersTable)
+      .where(eq(schema.tranfersTable.id, original.id));
     expect(row.status).toBe('COMPLETED');
-    expect(await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.reversalOf, original.id))).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(schema.tranfersTable)
+        .where(eq(schema.tranfersTable.reversalOf, original.id)),
+    ).toHaveLength(0);
   });
 
   it('allows only one effective concurrent reversal and rejects a distinct subsequent key', async () => {
     const sender = await createWallet(100n);
     const receiver = await createWallet();
-    const original = await transfers.create(sender.user.id, receiver.user.id, '30', randomUUID());
+    const original = await transfers.create(
+      sender.user.id,
+      receiver.user.id,
+      '30',
+      randomUUID(),
+    );
     const outcomes = await Promise.allSettled([
       transfers.reverse(sender.user.id, original.id, randomUUID()),
       transfers.reverse(sender.user.id, original.id, randomUUID()),
     ]);
-    expect(outcomes.filter((item) => item.status === 'fulfilled')).toHaveLength(1);
-    expect(outcomes.filter((item) => item.status === 'rejected')).toHaveLength(1);
-    const reversal = (outcomes.find((item) => item.status === 'fulfilled') as PromiseFulfilledResult<Awaited<ReturnType<typeof transfers.reverse>>>).value;
+    expect(outcomes.filter((item) => item.status === 'fulfilled')).toHaveLength(
+      1,
+    );
+    expect(outcomes.filter((item) => item.status === 'rejected')).toHaveLength(
+      1,
+    );
+    const reversal = (
+      outcomes.find(
+        (item) => item.status === 'fulfilled',
+      ) as PromiseFulfilledResult<Awaited<ReturnType<typeof transfers.reverse>>>
+    ).value;
     transferIds.push(reversal.id);
-    await expect(transfers.reverse(sender.user.id, original.id, randomUUID())).rejects.toThrow();
+    await expect(
+      transfers.reverse(sender.user.id, original.id, randomUUID()),
+    ).rejects.toThrow();
   });
 
   it('rolls back reversal, original status, projections, events and key on append failure', async () => {
     const sender = await createWallet(100n);
     const receiver = await createWallet();
-    const original = await transfers.create(sender.user.id, receiver.user.id, '30', randomUUID());
-    const originalEvents = await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, original.id));
+    const original = await transfers.create(
+      sender.user.id,
+      receiver.user.id,
+      '30',
+      randomUUID(),
+    );
+    const originalEvents = await db
+      .select()
+      .from(schema.eventsTable)
+      .where(eq(schema.eventsTable.operationId, original.id));
     let appends = 0;
-    const failingEvents = { append: (...args: Parameters<EventsService['append']>) => {
-      appends += 1;
-      if (appends === 2) throw new Error('forced reversal append failure');
-      return events.append(...args);
-    } } as EventsService;
-    const failingService = new TransfersService(uow, wallets, failingEvents, idempotency, transferRepository);
+    const failingEvents = {
+      append: (...args: Parameters<EventsService['append']>) => {
+        appends += 1;
+        if (appends === 2) throw new Error('forced reversal append failure');
+        return events.append(...args);
+      },
+    } as EventsService;
+    const failingWalletService = new WalletService(
+      uow,
+      wallets,
+      eventRepository,
+      failingEvents,
+    );
+    const failingService = new TransfersService(
+      uow,
+      wallets,
+      failingWalletService,
+      idempotency,
+      transferRepository,
+      users,
+    );
     const key = randomUUID();
-    await expect(failingService.reverse(sender.user.id, original.id, key)).rejects.toThrow('forced reversal append failure');
-    const [unchanged] = await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.id, original.id));
+    await expect(
+      failingService.reverse(sender.user.id, original.id, key),
+    ).rejects.toThrow('forced reversal append failure');
+    const [unchanged] = await db
+      .select()
+      .from(schema.tranfersTable)
+      .where(eq(schema.tranfersTable.id, original.id));
     expect(unchanged.status).toBe('COMPLETED');
-    expect(await db.select().from(schema.tranfersTable).where(eq(schema.tranfersTable.reversalOf, original.id))).toHaveLength(0);
-    expect(await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, original.id))).toEqual(originalEvents);
+    expect(
+      await db
+        .select()
+        .from(schema.tranfersTable)
+        .where(eq(schema.tranfersTable.reversalOf, original.id)),
+    ).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(schema.eventsTable)
+        .where(eq(schema.eventsTable.operationId, original.id)),
+    ).toEqual(originalEvents);
     const retry = await transfers.reverse(sender.user.id, original.id, key);
     transferIds.push(retry.id);
     expect(retry.reversalOf).toBe(original.id);
+  });
+
+  it('replays one effective reversal for concurrent requests with the same key', async () => {
+    const sender = await createWallet(100n);
+    const receiver = await createWallet();
+    const original = await transfers.create(
+      sender.user.id,
+      receiver.user.id,
+      '80',
+      randomUUID(),
+    );
+    const key = randomUUID();
+
+    const [first, second] = await Promise.all([
+      transfers.reverse(sender.user.id, original.id, key),
+      transfers.reverse(sender.user.id, original.id, key.toUpperCase()),
+    ]);
+
+    expect(first).toEqual(second);
+    expect(
+      await db
+        .select()
+        .from(schema.tranfersTable)
+        .where(eq(schema.tranfersTable.reversalOf, original.id)),
+    ).toHaveLength(1);
+    expect(
+      await db
+        .select()
+        .from(schema.eventsTable)
+        .where(eq(schema.eventsTable.operationId, first.id)),
+    ).toHaveLength(2);
+    const [from] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, sender.wallet.id));
+    const [to] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, receiver.wallet.id));
+    expect([
+      from.balanceCents,
+      from.version,
+      to.balanceCents,
+      to.version,
+    ]).toEqual([100n, 4, 0n, 3]);
+  });
+
+  it('serializes receiver spending against reversal without overdraft or partial effects', async () => {
+    const sender = await createWallet(100n);
+    const receiver = await createWallet();
+    const destination = await createWallet();
+    const original = await transfers.create(
+      sender.user.id,
+      receiver.user.id,
+      '80',
+      randomUUID(),
+    );
+
+    const [reversal, spending] = await Promise.allSettled([
+      transfers.reverse(sender.user.id, original.id, randomUUID()),
+      transfers.create(
+        receiver.user.id,
+        destination.user.id,
+        '80',
+        randomUUID(),
+      ),
+    ]);
+
+    const outcomes = [reversal, spending];
+    expect(
+      outcomes.filter((outcome) => outcome.status === 'fulfilled'),
+    ).toHaveLength(1);
+    const failed = outcomes.find((outcome) => outcome.status === 'rejected');
+    expect(failed?.reason).toBeInstanceOf(InsufficientFunds);
+
+    const [from] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, sender.wallet.id));
+    const [to] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, receiver.wallet.id));
+    const [third] = await db
+      .select()
+      .from(schema.walletsTable)
+      .where(eq(schema.walletsTable.id, destination.wallet.id));
+    const [storedOriginal] = await db
+      .select()
+      .from(schema.tranfersTable)
+      .where(eq(schema.tranfersTable.id, original.id));
+    expect(to.balanceCents).toBe(0n);
+    expect(from.balanceCents + to.balanceCents + third.balanceCents).toBe(100n);
+    expect([
+      from.balanceCents,
+      third.balanceCents,
+      storedOriginal.status,
+    ]).toEqual(
+      reversal.status === 'fulfilled'
+        ? [100n, 0n, 'REVERSED']
+        : [20n, 80n, 'COMPLETED'],
+    );
+    const operations = await db
+      .select()
+      .from(schema.tranfersTable)
+      .where(
+        or(
+          inArray(schema.tranfersTable.senderWallet, walletIds),
+          inArray(schema.tranfersTable.receiverWallet, walletIds),
+        ),
+      );
+    expect(operations).toHaveLength(2);
+    const linkedEvents = await db
+      .select()
+      .from(schema.eventsTable)
+      .where(
+        inArray(
+          schema.eventsTable.operationId,
+          operations.map((operation) => operation.id),
+        ),
+      );
+    expect(linkedEvents).toHaveLength(4);
+    for (const walletId of walletIds) {
+      expect(await consistencyVerifier.verify(walletId)).toMatchObject({
+        consistent: true,
+      });
+    }
   });
 });
