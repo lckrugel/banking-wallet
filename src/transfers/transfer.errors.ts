@@ -15,3 +15,7 @@ export class BalanceOverflow extends DomainError {
   readonly code = 'WALLET_BALANCE_OVERFLOW';
   constructor() { super('Recipient balance would overflow.'); }
 }
+export class IdempotencyKeyReused extends DomainError {
+  readonly code = 'IDEMPOTENCY_KEY_REUSED';
+  constructor() { super('Idempotency key was already used with a different request.'); }
+}

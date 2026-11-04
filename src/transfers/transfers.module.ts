@@ -5,6 +5,8 @@ import { EventsModule } from '../events/events.module.js';
 import { WalletModule } from '../wallet/wallet.module.js';
 import { TransfersController } from './transfers.controller.js';
 import { TransfersService } from './transfers.service.js';
+import { IdempotencyRepository } from './idempotency.repository.js';
+import { TransfersRepository } from './transfers.repository.js';
 
-@Module({ imports: [AuthModule, DatabaseModule, EventsModule, WalletModule], controllers: [TransfersController], providers: [TransfersService] })
+@Module({ imports: [AuthModule, DatabaseModule, EventsModule, WalletModule], controllers: [TransfersController], providers: [TransfersService, IdempotencyRepository, TransfersRepository] })
 export class TransfersModule {}

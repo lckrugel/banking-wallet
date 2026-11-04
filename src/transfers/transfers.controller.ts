@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Headers, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard, type AuthenticatedUser } from '../auth/auth.guard.js';
 import { CurrentUser } from '../auth/auth-user.decorator.js';
 import { CreateTransferDto } from './transfer.dto.js';
@@ -10,7 +10,10 @@ export class TransfersController {
   constructor(private readonly transfers: TransfersService) {}
 
   @Post()
-  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateTransferDto) {
-    return this.transfers.create(user.id, dto.recipientUserId, dto.amountCents);
+  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateTransferDto, @Headers('idempotency-key') key?: string) {
+    if (!key || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)) {
+      throw new BadRequestException('A valid Idempotency-Key UUID is required');
+    }
+    return this.transfers.create(user.id, dto.recipientUserId, dto.amountCents, key.toLowerCase());
   }
 }
