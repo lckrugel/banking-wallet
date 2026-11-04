@@ -16,6 +16,7 @@ import { InsufficientFunds } from '../src/wallet/wallet.errors.js';
 import { IdempotencyKeyReused } from '../src/transfers/transfer.errors.js';
 import { IdempotencyRepository } from '../src/transfers/idempotency.repository.js';
 import { TransfersRepository } from '../src/transfers/transfers.repository.js';
+import { WalletConsistencyVerifier } from '../src/wallet/wallet-consistency-verifier.js';
 
 describe('transfers (PostgreSQL)', () => {
   const pool = new Pool({
@@ -32,6 +33,7 @@ describe('transfers (PostgreSQL)', () => {
   const eventRepository = new EventsRepository();
   const events = new EventsService(eventRepository);
   const walletService = new WalletService(uow, wallets, eventRepository, events);
+  const consistencyVerifier = new WalletConsistencyVerifier(uow, wallets, eventRepository);
   const idempotency = new IdempotencyRepository();
   const transferRepository = new TransfersRepository();
   const transfers = new TransfersService(uow, wallets, events, idempotency, transferRepository);
@@ -261,6 +263,12 @@ describe('transfers (PostgreSQL)', () => {
     const reversalEvents = await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, reversal.id));
     expect(reversalEvents).toHaveLength(2);
     expect(await db.select().from(schema.eventsTable).where(eq(schema.eventsTable.operationId, original.id))).toEqual(originalEvents);
+    const [senderReplay, receiverReplay] = await Promise.all([
+      consistencyVerifier.verify(sender.wallet.id),
+      consistencyVerifier.verify(receiver.wallet.id),
+    ]);
+    expect(senderReplay).toMatchObject({ consistent: true, balanceCents: from.balanceCents.toString(), version: from.version });
+    expect(receiverReplay).toMatchObject({ consistent: true, balanceCents: to.balanceCents.toString(), version: to.version });
     expect(await transfers.reverse(sender.user.id, original.id, key)).toEqual(reversal);
     expect(await transfers.create(sender.user.id, receiver.user.id, '200', createKey)).toEqual(original);
     await expect(transfers.reverse(receiver.user.id, original.id, randomUUID())).rejects.toMatchObject({ code: 'TRANSFER_NOT_FOUND' });
