@@ -2,9 +2,10 @@ import {
   ArgumentsHost,
   Catch,
   ExceptionFilter,
+  HttpException,
   Logger,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { DomainError } from './domain-error.js';
 
 type HttpError = { status: number; code: string; message: string };
@@ -68,28 +69,58 @@ const PUBLIC_ERRORS: Record<string, HttpError> = {
   TRANSFER_NOT_REVERSIBLE: { status: 409, code: 'TRANSFER_NOT_REVERSIBLE', message: 'Transfer is not eligible for reversal' },
 };
 
-@Catch(DomainError)
-export class DomainErrorFilter implements ExceptionFilter<DomainError> {
+@Catch()
+export class DomainErrorFilter implements ExceptionFilter {
   private readonly logger = new Logger(DomainErrorFilter.name);
 
-  catch(exception: DomainError, host: ArgumentsHost): void {
-    const response = host.switchToHttp().getResponse<Response>();
-    const mapped = PUBLIC_ERRORS[exception.code];
-
-    if (mapped) {
-      response.status(mapped.status).json({
-        statusCode: mapped.status,
-        code: mapped.code,
-        message: mapped.message,
-      });
-      return;
-    }
-
-    this.logger.error(`Unexpected domain error: ${exception.code}`, exception.stack);
-    response.status(500).json({
+  catch(exception: unknown, host: ArgumentsHost): void {
+    const http = host.switchToHttp();
+    const response = http.getResponse<Response>();
+    const request = typeof http.getRequest === 'function'
+      ? http.getRequest<Request & { requestId?: string }>()
+      : undefined;
+    let status = 500;
+    let body: { statusCode: number; code: string; message: string } = {
       statusCode: 500,
       code: 'INTERNAL_SERVER_ERROR',
       message: 'Internal server error',
-    });
+    };
+    let errorCode = 'INTERNAL_SERVER_ERROR';
+
+    if (exception instanceof DomainError) {
+      const mapped = PUBLIC_ERRORS[exception.code];
+      if (mapped) {
+        status = mapped.status;
+        errorCode = mapped.code;
+        body = { statusCode: status, code: mapped.code, message: mapped.message };
+      }
+    } else if (exception instanceof HttpException) {
+      status = exception.getStatus();
+      const exceptionBody = exception.getResponse();
+      const responseObject = typeof exceptionBody === 'object' && exceptionBody !== null
+        ? exceptionBody as Record<string, unknown>
+        : {};
+      const suppliedCode = responseObject.code;
+      errorCode = typeof suppliedCode === 'string' ? suppliedCode : `HTTP_${status}`;
+      body = typeof exceptionBody === 'object' && exceptionBody !== null
+        ? { statusCode: status, ...responseObject } as typeof body
+        : { statusCode: status, code: errorCode, message: String(exceptionBody) };
+    }
+
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      level: status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info',
+      event: 'http_request_failed',
+      requestId: request?.requestId,
+      method: request?.method,
+      path: request?.path,
+      statusCode: status,
+      errorCode,
+      errorType: exception instanceof Error ? exception.name : 'UnknownError',
+      ...(status >= 500 && exception instanceof Error ? { stack: exception.stack } : {}),
+    };
+    if (status >= 500) this.logger.error(JSON.stringify(logEntry));
+    else this.logger.warn(JSON.stringify(logEntry));
+    response.status(status).json(body);
   }
 }
