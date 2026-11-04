@@ -19,3 +19,7 @@ export class IdempotencyKeyReused extends DomainError {
   readonly code = 'IDEMPOTENCY_KEY_REUSED';
   constructor() { super('Idempotency key was already used with a different request.'); }
 }
+export class TransferNotReversible extends DomainError {
+  readonly code = 'TRANSFER_NOT_REVERSIBLE';
+  constructor() { super('Transfer is not eligible for reversal.'); }
+}

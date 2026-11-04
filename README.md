@@ -4,8 +4,7 @@ API REST de carteiras digitais construída como um monólito modular com event
 sourcing leve e PostgreSQL. Valores monetários são representados em centavos
 inteiros.
 
-> **Em desenvolvimento:** cadastro, autenticação, consulta de saldo e
-> transferências idempotentes estão implementados. Estornos ainda não estão.
+> **Em desenvolvimento:** cadastro, autenticação, consulta de saldo, transferências idempotentes e estornos estão implementados.
 > O projeto ainda não está pronto para operar dinheiro real em produção.
 
 ## Documentação e estado atual
@@ -22,7 +21,7 @@ para lacunas e próximos passos, e as [diretrizes de desenvolvimento](AGENTS.md)
 | Replay/verificação da carteira                  | Internos; sem reparo automático                     |
 | Seed de desenvolvimento                         | CLI interna; não é depósito                         |
 | Transferências autenticadas                     | Implementadas com chave de idempotência persistida  |
-| Estornos                                         | Não implementados                                   |
+| Estornos                                         | Implementados como operações compensatórias idempotentes |
 | Reconciliação entre operações                   | Não implementada                                    |
 
 ## Stack
@@ -121,6 +120,16 @@ Chamadas simultâneas com a mesma chave são serializadas pelo PostgreSQL; apena
 uma operação é criada, e chamadas concorrentes com comandos diferentes resultam
 em uma criação e um conflito.
 
+Somente o remetente original pode estornar uma transferência `COMPLETED`, pelo
+endpoint autenticado `POST /transfers/:id/reverse`, com um `Idempotency-Key`
+UUID próprio. O estorno é sempre integral; não há estornos parciais. O destinatário
+precisa manter saldo suficiente para devolver o valor: movimentações posteriores
+podem tornar o estorno indisponível (`422 INSUFFICIENT_FUNDS`). Um estorno é uma
+nova operação compensatória, não um rollback: os eventos originais permanecem
+imutáveis, o histórico exibe a transferência original como `REVERSED` e uma
+operação `REVERSAL` separada. Use a mesma chave em tentativas repetidas; chaves
+distintas para uma transferência já estornada entram em conflito (`409`).
+
 A carteira recém-criada retorna `{"walletId":"<uuid>","balance":"0"}`.
 `balance` é uma string de centavos, não um valor em unidades monetárias.
 O logout revoga a sessão do token utilizado.
@@ -133,13 +142,14 @@ O logout revoga a sessão do token utilizado.
 | `GET`  | `/wallets`         | Bearer       | Consultar a própria carteira                             |
 | `GET`  | `/wallets/history` | Bearer       | Consultar transferências/estornos da própria carteira    |
 | `POST` | `/transfers`       | Bearer       | Transferir centavos para outro usuário                   |
+| `POST` | `/transfers/:id/reverse` | Bearer | Compensar integralmente transferência própria concluída |
 | `GET`  | `/`                | Não          | Resposta de exemplo `Hello World!`; não verifica o banco |
 
 O histórico retorna operações de transferência/estorno em ordem decrescente por
 data e identificador. Use `limit` (1–100, padrão 20) e `nextCursor` como
 `cursor` na próxima chamada. Valores `amountCents` são strings de centavos;
 eventos internos de criação e seed não aparecem no histórico. As rotas para
-criar estornos ou depósitos ainda não existem.
+criar depósitos ainda não existem.
 
 ## Saldo para desenvolvimento
 
