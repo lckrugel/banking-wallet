@@ -90,6 +90,9 @@ segundos). Use o token nas chamadas autenticadas:
 curl http://localhost:3000/wallets \
   -H 'Authorization: Bearer <accessToken>'
 
+curl 'http://localhost:3000/wallets/history?limit=20' \
+  -H 'Authorization: Bearer <accessToken>'
+
 curl -X POST http://localhost:3000/auth/logout \
   -H 'Authorization: Bearer <accessToken>'
 ```
@@ -98,15 +101,20 @@ A carteira recém-criada retorna `{"walletId":"<uuid>","balance":"0"}`.
 `balance` é uma string de centavos, não um valor em unidades monetárias.
 O logout revoga a sessão do token utilizado.
 
-| Método | Rota           | Autenticação | Finalidade                                               |
-| ------ | -------------- | ------------ | -------------------------------------------------------- |
-| `POST` | `/users`       | Não          | Cadastrar usuário e criar sua carteira                   |
-| `POST` | `/auth/login`  | Não          | Criar sessão e emitir token                              |
-| `POST` | `/auth/logout` | Bearer       | Revogar a sessão atual                                   |
-| `GET`  | `/wallets`     | Bearer       | Consultar a própria carteira                             |
-| `GET`  | `/`            | Não          | Resposta de exemplo `Hello World!`; não verifica o banco |
+| Método | Rota               | Autenticação | Finalidade                                               |
+| ------ | ------------------ | ------------ | -------------------------------------------------------- |
+| `POST` | `/users`           | Não          | Cadastrar usuário e criar sua carteira                   |
+| `POST` | `/auth/login`      | Não          | Criar sessão e emitir token                              |
+| `POST` | `/auth/logout`     | Bearer       | Revogar a sessão atual                                   |
+| `GET`  | `/wallets`         | Bearer       | Consultar a própria carteira                             |
+| `GET`  | `/wallets/history` | Bearer       | Consultar transferências/estornos da própria carteira    |
+| `GET`  | `/`                | Não          | Resposta de exemplo `Hello World!`; não verifica o banco |
 
-Não existem endpoints de transferência, estorno, depósito ou histórico público.
+O histórico retorna operações de transferência/estorno em ordem decrescente por
+data e identificador. Use `limit` (1–100, padrão 20) e `nextCursor` como
+`cursor` na próxima chamada. Valores `amountCents` são strings de centavos;
+eventos internos de criação e seed não aparecem no histórico. As rotas para
+criar transferências, estornos ou depósitos ainda não existem.
 
 ## Saldo para desenvolvimento
 
