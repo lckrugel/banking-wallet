@@ -64,6 +64,7 @@ const PUBLIC_ERRORS: Record<string, HttpError> = {
   TRANSFER_INVALID: { status: 400, code: 'TRANSFER_INVALID', message: 'Amount must be a positive signed BIGINT decimal string' },
   SELF_TRANSFER: { status: 422, code: 'SELF_TRANSFER', message: 'Cannot transfer to yourself' },
   WALLET_BALANCE_OVERFLOW: { status: 422, code: 'WALLET_BALANCE_OVERFLOW', message: 'Recipient balance would overflow' },
+  IDEMPOTENCY_KEY_REUSED: { status: 409, code: 'IDEMPOTENCY_KEY_REUSED', message: 'Idempotency key was already used with a different request' },
 };
 
 @Catch(DomainError)

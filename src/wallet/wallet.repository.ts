@@ -77,6 +77,12 @@ export class WalletRepository {
     return wallet ?? null;
   }
 
+  async lockById(tx: DatabaseTransaction, walletId: string): Promise<WalletSnapshot | null> {
+    const result = await tx.execute(sql`SELECT id, user_id as "userId", balance_cents as "balanceCents", version FROM wallets WHERE id = ${walletId}::uuid FOR UPDATE`);
+    const row = (Array.isArray(result) ? result[0]?.rows[0] : result.rows[0]) as WalletSnapshot | undefined;
+    return row ? { ...row, balanceCents: BigInt(row.balanceCents) } : null;
+  }
+
   async findHistoryPage(
     tx: DatabaseTransaction,
     walletId: string,
