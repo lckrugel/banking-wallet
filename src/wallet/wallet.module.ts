@@ -6,11 +6,17 @@ import { WalletRepository } from './wallet.repository.js';
 import { DatabaseModule } from '../database/database.module.js';
 import { EventsModule } from '../events/events.module.js';
 import { WalletConsistencyVerifier } from './wallet-consistency-verifier.js';
+import { WalletHistoryService } from './wallet-history.js';
 
 @Module({
   imports: [AuthModule, DatabaseModule, EventsModule],
   controllers: [WalletController],
-  providers: [WalletService, WalletRepository, WalletConsistencyVerifier],
+  providers: [
+    WalletService,
+    WalletRepository,
+    WalletConsistencyVerifier,
+    WalletHistoryService,
+  ],
   exports: [WalletService, WalletConsistencyVerifier],
 })
 export class WalletModule {}

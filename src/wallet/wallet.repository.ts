@@ -7,7 +7,7 @@ import {
   WalletConcurrencyConflict,
   InvalidWalletVersion,
 } from './wallet.errors.js';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, or, desc, sql, getTableColumns } from 'drizzle-orm';
 import type { Wallet, WalletSnapshot } from './wallet.entity.js';
 import { isPostgresConstraintViolation } from '../database/postgres-error.js';
 
@@ -75,6 +75,38 @@ export class WalletRepository {
       .where(eq(this.walletsTable.id, walletId))
       .limit(1);
     return wallet ?? null;
+  }
+
+  async findHistoryPage(
+    tx: DatabaseTransaction,
+    walletId: string,
+    limit: number,
+    cursor?: { createdAt: string; id: string },
+  ) {
+    const conditions = [
+      or(
+        eq(schema.tranfersTable.senderWallet, walletId),
+        eq(schema.tranfersTable.receiverWallet, walletId),
+      )!,
+    ];
+    if (cursor)
+      // Compare the database timestamp directly to a typed timestamptz parameter.
+      // This preserves PostgreSQL microseconds rather than round-tripping through JS Date.
+      conditions.push(
+        sql`(${schema.tranfersTable.createdAt}, ${schema.tranfersTable.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`,
+      );
+    return tx
+      .select({
+        ...getTableColumns(schema.tranfersTable),
+        createdAtExact: sql<string>`to_char(${schema.tranfersTable.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      })
+      .from(schema.tranfersTable)
+      .where(and(...conditions))
+      .orderBy(
+        desc(schema.tranfersTable.createdAt),
+        desc(schema.tranfersTable.id),
+      )
+      .limit(limit);
   }
 
   async updateBalanceIfVersion(
