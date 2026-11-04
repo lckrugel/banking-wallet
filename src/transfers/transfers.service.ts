@@ -8,7 +8,7 @@ import { WalletConcurrencyConflict } from '../wallet/wallet.errors.js';
 import { toWalletEventRecords } from '../wallet/wallet.events.js';
 import { WalletRepository } from '../wallet/wallet.repository.js';
 import { EventsService } from '../events/events.service.js';
-import { TransferNotFound, TransferInvalid, SelfTransfer, BalanceOverflow, IdempotencyKeyReused } from './transfer.errors.js';
+import { TransferNotFound, TransferInvalid, SelfTransfer, BalanceOverflow, IdempotencyKeyReused, TransferNotReversible } from './transfer.errors.js';
 import { IdempotencyRepository } from './idempotency.repository.js';
 import { TransfersRepository } from './transfers.repository.js';
 
@@ -75,6 +75,49 @@ export class TransfersService {
       return toTransferResponse(transfer);
     });
   }
+
+  reverse(senderUserId: string, transferId: string, key: string) {
+    const requestHash = createHash('sha256').update(JSON.stringify({ command: 'transfer.reverse.v1', transferId: transferId.toLowerCase() })).digest('hex');
+    return this.uow.execute(async (tx) => {
+      const reservation = await this.idempotency.reserve(tx, senderUserId, key.toLowerCase(), requestHash);
+      if (!reservation) {
+        const prior = await this.idempotency.find(tx, senderUserId, key.toLowerCase());
+        if (!prior) throw new Error('Idempotency reservation disappeared');
+        if (prior.requestHash !== requestHash) throw new IdempotencyKeyReused();
+        const existing = await this.transfers.findByIdempotencyKey(tx, prior.id);
+        if (!existing) throw new Error('Idempotency key exists without its transfer');
+        return toTransferResponse(existing);
+      }
+      const original = await this.transfers.lockById(tx, transferId);
+      if (!original) throw new TransferNotFound('Transfer not found.');
+      const sender = await this.wallets.findById(tx, original.senderWallet);
+      if (!sender || sender.userId !== senderUserId) throw new TransferNotFound('Transfer not found.');
+      if (original.reversalOf || original.status !== 'COMPLETED' || await this.transfers.findReversal(tx, original.id)) throw new TransferNotReversible();
+      const ids = [original.senderWallet, original.receiverWallet].sort();
+      const locked: WalletSnapshot[] = [];
+      for (const id of ids) {
+        const row = await this.wallets.lockById(tx, id);
+        if (!row) throw new TransferNotFound('Transfer not found.');
+        locked.push(row);
+      }
+      const byId = new Map(locked.map((wallet) => [wallet.id, wallet]));
+      const fromSnapshot = byId.get(original.receiverWallet)!;
+      const toSnapshot = byId.get(original.senderWallet)!;
+      if (toSnapshot.balanceCents > MAX_BALANCE - original.amountCents) throw new BalanceOverflow();
+      const debit = Wallet.fromSnapshot(fromSnapshot);
+      const credit = Wallet.fromSnapshot(toSnapshot);
+      debit.debit(original.amountCents);
+      credit.credit(original.amountCents);
+      if (debit.version > 2147483647 || credit.version > 2147483647) throw new WalletConcurrencyConflict();
+      const reversal = await this.transfers.insert(tx, { senderWallet: debit.id, receiverWallet: credit.id, amountCents: original.amountCents, idempotencyKeyId: reservation.id, reversalOf: original.id });
+      await this.wallets.updateBalanceIfVersion(tx, { walletId: debit.id, expectedVersion: fromSnapshot.version, newBalance: debit.balanceCents, newVersion: debit.version });
+      await this.wallets.updateBalanceIfVersion(tx, { walletId: credit.id, expectedVersion: toSnapshot.version, newBalance: credit.balanceCents, newVersion: credit.version });
+      await this.events.append(tx, { aggregateType: 'WALLET', aggregateId: debit.id, expectedVersion: fromSnapshot.version, events: toWalletEventRecords(debit.id, debit.pendingEvents, reversal.id) });
+      await this.events.append(tx, { aggregateType: 'WALLET', aggregateId: credit.id, expectedVersion: toSnapshot.version, events: toWalletEventRecords(credit.id, credit.pendingEvents, reversal.id) });
+      await this.transfers.markReversed(tx, original.id);
+      return { ...toTransferResponse(reversal), reversalOf: original.id };
+    });
+  }
 }
 
 export function createTransferFingerprint(recipientUserId: string, amountCents: bigint): string {
@@ -94,5 +137,6 @@ function toTransferResponse(transfer: typeof schema.tranfersTable.$inferSelect) 
     // The create response describes the successful creation, not later reversals.
     status: 'COMPLETED' as const,
     createdAt: transfer.createdAt,
+    ...(transfer.reversalOf ? { reversalOf: transfer.reversalOf } : {}),
   };
 }
