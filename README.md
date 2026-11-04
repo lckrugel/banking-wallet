@@ -5,7 +5,7 @@ sourcing leve e PostgreSQL. Valores monetários são representados em centavos
 inteiros.
 
 > **Em desenvolvimento:** cadastro, autenticação, consulta de saldo e
-> transferências estão implementados. Estornos e idempotência ainda não estão.
+> transferências idempotentes estão implementados. Estornos ainda não estão.
 > O projeto ainda não está pronto para operar dinheiro real em produção.
 
 ## Documentação e estado atual
@@ -21,7 +21,7 @@ para lacunas e próximos passos, e as [diretrizes de desenvolvimento](AGENTS.md)
 | Histórico de eventos e projeção de saldo/versão | Implementados                                       |
 | Replay/verificação da carteira                  | Internos; sem reparo automático                     |
 | Seed de desenvolvimento                         | CLI interna; não é depósito                         |
-| Transferências autenticadas                     | Implementadas; sem idempotência/reexecução segura   |
+| Transferências autenticadas                     | Implementadas com chave de idempotência persistida  |
 | Estornos                                         | Não implementados                                   |
 | Reconciliação entre operações                   | Não implementada                                    |
 
@@ -103,14 +103,23 @@ Crie uma transferência autenticada (o remetente é sempre o usuário do token):
 curl -X POST http://localhost:3000/transfers \
   -H 'Authorization: Bearer <accessToken>' \
   -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: <uuid-gerado-pelo-cliente>' \
   -d '{"recipientUserId":"<uuid-do-destinatario>","amountCents":"1250"}'
 ```
 
 O valor deve ser uma string decimal inteira positiva, limitada ao BIGINT assinado
 do PostgreSQL. A transferência é atômica e aparece no histórico de ambas as
-carteiras. Não há chave de idempotência: em caso de timeout/resultado incerto,
-não repita a requisição sem antes verificar o histórico, pois a repetição pode
-criar uma segunda transferência.
+carteiras. Gere uma chave UUID por comando de transferência e reutilize exatamente
+a mesma chave ao repetir uma chamada cujo resultado seja incerto; não gere outra
+chave para uma simples repetição. A chave é escopada pelo usuário autenticado e
+retida indefinidamente. Uma repetição com o mesmo comando normalizado retorna o
+resultado original sem novos efeitos financeiros. Reutilizar a chave com outro
+destinatário ou valor retorna `409 IDEMPOTENCY_KEY_REUSED`; chaves ausentes ou
+inválidas retornam `400`. A reserva da chave, operação, projeções e eventos são
+confirmados juntos: falhas não persistem a chave e podem ser tentadas novamente.
+Chamadas simultâneas com a mesma chave são serializadas pelo PostgreSQL; apenas
+uma operação é criada, e chamadas concorrentes com comandos diferentes resultam
+em uma criação e um conflito.
 
 A carteira recém-criada retorna `{"walletId":"<uuid>","balance":"0"}`.
 `balance` é uma string de centavos, não um valor em unidades monetárias.
