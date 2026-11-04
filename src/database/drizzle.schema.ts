@@ -124,8 +124,7 @@ export const tranfersTable = pgTable(
     idempotencyKeyId: t
       .uuid('idempotency_key_id')
       .references(() => idempotencyKeysTable.id)
-      .unique()
-      .notNull(),
+      .unique(),
     createdAt: t
       .timestamp('created_at', { withTimezone: true })
       .defaultNow()

@@ -60,6 +60,10 @@ const PUBLIC_ERRORS: Record<string, HttpError> = {
     code: 'INSUFFICIENT_FUNDS',
     message: 'Wallet has insufficient funds',
   },
+  TRANSFER_NOT_FOUND: { status: 404, code: 'TRANSFER_NOT_FOUND', message: 'Recipient or wallet not found' },
+  TRANSFER_INVALID: { status: 400, code: 'TRANSFER_INVALID', message: 'Amount must be a positive signed BIGINT decimal string' },
+  SELF_TRANSFER: { status: 422, code: 'SELF_TRANSFER', message: 'Cannot transfer to yourself' },
+  WALLET_BALANCE_OVERFLOW: { status: 422, code: 'WALLET_BALANCE_OVERFLOW', message: 'Recipient balance would overflow' },
 };
 
 @Catch(DomainError)
