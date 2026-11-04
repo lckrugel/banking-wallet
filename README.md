@@ -9,20 +9,20 @@ inteiros.
 
 ## Documentação e estado atual
 
-Consulte a [arquitetura atual](docs/architecture.md), o [plano de implementação](docs/implementation-plan.md)
-para lacunas e próximos passos, e as [diretrizes de desenvolvimento](AGENTS.md).
+Consulte a [arquitetura atual](docs/architecture.md) e as
+[diretrizes de desenvolvimento](AGENTS.md) para os fluxos, garantias e limitações.
 
-| Funcionalidade                                  | Estado                                              |
-| ----------------------------------------------- | --------------------------------------------------- |
-| Cadastro de usuário com carteira de saldo zero  | Implementado em uma única transação                 |
-| Login e logout                                  | Implementados com JWT e sessão persistida revogável |
-| Consulta da própria carteira                    | Implementada e autenticada                          |
-| Histórico de eventos e projeção de saldo/versão | Implementados                                       |
-| Replay/verificação da carteira                  | Internos; sem reparo automático                     |
-| Seed de desenvolvimento                         | CLI interna; não é depósito                         |
-| Transferências autenticadas                     | Implementadas com chave de idempotência persistida  |
-| Estornos                                         | Implementados como operações compensatórias idempotentes |
-| Reconciliação entre operações                   | Não implementada                                    |
+| Funcionalidade                                 | Estado                                                   |
+| ---------------------------------------------- | -------------------------------------------------------- |
+| Cadastro de usuário com carteira de saldo zero | Implementado em uma única transação                      |
+| Login e logout                                 | Implementados com JWT e sessão persistida revogável      |
+| Consulta da própria carteira                   | Implementada e autenticada                               |
+| Eventos e projeção de saldo/versão             | Implementados                                            |
+| Replay/verificação da carteira                 | Internos; sem reparo automático                          |
+| Seed de desenvolvimento                        | CLI interna; não é depósito                              |
+| Transferências autenticadas                    | Implementadas com chave de idempotência persistida       |
+| Estornos                                       | Implementados como operações compensatórias idempotentes |
+| Reconciliação entre operações                  | Não implementada                                         |
 
 ## Stack
 
@@ -130,20 +130,25 @@ imutáveis, o histórico exibe a transferência original como `REVERSED` e uma
 operação `REVERSAL` separada. Use a mesma chave em tentativas repetidas; chaves
 distintas para uma transferência já estornada entram em conflito (`409`).
 
+Uma falha durante a execução causa rollback de todas as escritas. Já o estorno
+após o commit é uma nova movimentação; ele não restaura saldos antigos nem desfaz
+outras transferências. Uma retentativa idempotente retorna a resposta original de
+criação (`COMPLETED`), mesmo após estorno; consulte o histórico para o status atual.
+
 A carteira recém-criada retorna `{"walletId":"<uuid>","balance":"0"}`.
 `balance` é uma string de centavos, não um valor em unidades monetárias.
 O logout revoga a sessão do token utilizado.
 
-| Método | Rota               | Autenticação | Finalidade                                               |
-| ------ | ------------------ | ------------ | -------------------------------------------------------- |
-| `POST` | `/users`           | Não          | Cadastrar usuário e criar sua carteira                   |
-| `POST` | `/auth/login`      | Não          | Criar sessão e emitir token                              |
-| `POST` | `/auth/logout`     | Bearer       | Revogar a sessão atual                                   |
-| `GET`  | `/wallets`         | Bearer       | Consultar a própria carteira                             |
-| `GET`  | `/wallets/history` | Bearer       | Consultar transferências/estornos da própria carteira    |
-| `POST` | `/transfers`       | Bearer       | Transferir centavos para outro usuário                   |
-| `POST` | `/transfers/:id/reverse` | Bearer | Compensar integralmente transferência própria concluída |
-| `GET`  | `/`                | Não          | Resposta de exemplo `Hello World!`; não verifica o banco |
+| Método | Rota                     | Autenticação | Finalidade                                               |
+| ------ | ------------------------ | ------------ | -------------------------------------------------------- |
+| `POST` | `/users`                 | Não          | Cadastrar usuário e criar sua carteira                   |
+| `POST` | `/auth/login`            | Não          | Criar sessão e emitir token                              |
+| `POST` | `/auth/logout`           | Bearer       | Revogar a sessão atual                                   |
+| `GET`  | `/wallets`               | Bearer       | Consultar a própria carteira                             |
+| `GET`  | `/wallets/history`       | Bearer       | Consultar transferências/estornos da própria carteira    |
+| `POST` | `/transfers`             | Bearer       | Transferir centavos para outro usuário                   |
+| `POST` | `/transfers/:id/reverse` | Bearer       | Compensar integralmente transferência própria concluída  |
+| `GET`  | `/`                      | Não          | Resposta de exemplo `Hello World!`; não verifica o banco |
 
 O histórico retorna operações de transferência/estorno em ordem decrescente por
 data e identificador. Use `limit` (1–100, padrão 20) e `nextCursor` como
@@ -175,6 +180,7 @@ nem deve ser usada como mecanismo de financiamento de produção.
 npm test
 npm run test:cov
 npm run lint
+npm run typecheck
 npm run build
 ```
 
@@ -197,10 +203,34 @@ produção: os testes escrevem e removem dados. O container de teste usa `tmpfs`
 seus dados não são persistidos após sua remoção.
 
 Os testes de integração cobrem rollback, concorrência de projeções, constraints
-e divergência entre projeção e eventos.
+e divergência entre projeção e eventos, além de idempotência e disputa de saldo
+entre transferência e estorno.
 
-`npm run test:e2e` existe, mas verifica apenas a rota `/`. Consulte o
-[plano](docs/implementation-plan.md) para as lacunas de testes.
+### E2E pela interface HTTP
+
+Os E2E usam NestJS, JWT e PostgreSQL reais, com o mesmo filtro de erros e pipe de
+validação da API. Cobrem cadastro, login, transferência, consulta de saldo,
+histórico, estorno, idempotência e rejeições por autenticação, autorização e saldo.
+O seed é somente uma fixture interna, não um endpoint adicional.
+
+Use outro projeto Compose e uma porta livre, por exemplo `55434`:
+
+```sh
+PG_TEST_PORT=55434 PG_DB=banking_wallet_e2e docker compose -p banking-wallet-e2e -f compose.test.yml up -d db
+# Aguarde o banco ficar saudável antes de aplicar as migrations.
+PG_HOST=127.0.0.1 PG_PORT=55434 PG_DB=banking_wallet_e2e npm run db:migrate
+TEST_PG_HOST=127.0.0.1 TEST_PG_PORT=55434 TEST_PG_DB=banking_wallet_e2e npm run test:e2e
+docker compose -p banking-wallet-e2e -f compose.test.yml down
+```
+
+O runner exige `TEST_PG_HOST`, `TEST_PG_PORT` e `TEST_PG_DB` explícitos e os mapeia
+para as variáveis `PG_*` antes de carregar a aplicação. Sem essas variáveis ele
+falha, em vez de usar silenciosamente o banco de desenvolvimento. Usuário, senha
+e demais configurações continuam vindo do ambiente ou `.env`.
+
+Cada cenário cria dados próprios; a suíte remove apenas suas fixtures e fecha a
+aplicação e as conexões. Não aponte os testes para bancos compartilhados ou de
+produção. Ao terminar, remova somente o projeto de teste criado para essa execução.
 
 ## Logs e operação
 
@@ -209,5 +239,6 @@ docker compose logs -f api
 ```
 
 Há logs padrão do NestJS e de falhas internas de domínio. Ainda não há logging
-estruturado ou métricas; `LOG_LEVEL` não configura o logger. Consulte o [plano de
-implementação](docs/implementation-plan.md) antes de planejar uso em produção.
+estruturado ou métricas; `LOG_LEVEL` não configura o logger. Não há reconciliação
+entre operações nem reparo automático de projeções; o projeto não está pronto
+para operar dinheiro real em produção.

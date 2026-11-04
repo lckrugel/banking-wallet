@@ -241,8 +241,10 @@ describe('WalletEntity', () => {
   it('returns a copy of pending events', () => {
     const wallet = Wallet.createWallet('user-id');
     const pendingEvents = wallet.pendingEvents;
-    Reflect.set(pendingEvents[0], 'version', 99);
-    pendingEvents.pop();
+    const mutableEvents = [...pendingEvents];
+    Reflect.set(mutableEvents[0], 'version', 99);
+    mutableEvents.pop();
+    expect(wallet.pendingEvents).not.toBe(pendingEvents);
     expect(wallet.pendingEvents).toEqual([
       { type: 'WALLET_CREATED', version: 1 },
     ]);
