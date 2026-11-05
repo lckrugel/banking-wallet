@@ -4,9 +4,6 @@ API REST de carteiras digitais construída como um monólito modular com event
 sourcing leve e PostgreSQL. Valores monetários são representados em centavos
 inteiros.
 
-> **Em desenvolvimento:** cadastro, autenticação, consulta de saldo, transferências idempotentes e estornos estão implementados.
-> O projeto ainda não está pronto para operar dinheiro real em produção.
-
 ## Documentação e estado atual
 
 Consulte a [arquitetura atual](docs/architecture.md) e as
