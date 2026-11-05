@@ -14,8 +14,6 @@ export class RequestLoggingMiddleware implements NestMiddleware {
     response.setHeader('x-request-id', request.requestId);
     response.on('finish', () => {
       const entry = {
-        timestamp: new Date().toISOString(),
-        level: response.statusCode >= 500 ? 'error' : response.statusCode >= 400 ? 'warn' : 'info',
         event: 'http_request_completed',
         requestId: request.requestId,
         method: request.method,
@@ -23,7 +21,9 @@ export class RequestLoggingMiddleware implements NestMiddleware {
         statusCode: response.statusCode,
         durationMs: Date.now() - startedAt,
       };
-      this.logger.log(JSON.stringify(entry));
+      if (response.statusCode >= 500) this.logger.error(entry);
+      else if (response.statusCode >= 400) this.logger.warn(entry);
+      else this.logger.log(entry);
     });
     next();
   }

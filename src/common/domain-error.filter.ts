@@ -108,8 +108,6 @@ export class DomainErrorFilter implements ExceptionFilter {
     }
 
     const logEntry = {
-      timestamp: new Date().toISOString(),
-      level: status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info',
       event: 'http_request_failed',
       requestId: request?.requestId,
       method: request?.method,
@@ -119,8 +117,8 @@ export class DomainErrorFilter implements ExceptionFilter {
       errorType: exception instanceof Error ? exception.name : 'UnknownError',
       ...(status >= 500 && exception instanceof Error ? { stack: exception.stack } : {}),
     };
-    if (status >= 500) this.logger.error(JSON.stringify(logEntry));
-    else this.logger.warn(JSON.stringify(logEntry));
+    if (status >= 500) this.logger.error(logEntry);
+    else this.logger.warn(logEntry);
     response.status(status).json(body);
   }
 }
