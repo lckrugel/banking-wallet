@@ -45,8 +45,10 @@ flowchart LR
 
 O domínio `Wallet` aplica regras monetárias sem depender de NestJS ou Drizzle.
 Repositories encapsulam consultas. O Unit of Work compartilha uma transação Drizzle
-entre escritas relacionadas. Ao persistir uma alteração, a projeção é atualizada
-com comparação de versão; eventos e projeção devem ser gravados na mesma transação.
+entre escritas relacionadas.
+
+Ao persistir uma alteração, a projeção é atualizada com comparação de versão.
+Eventos e projeção devem ser gravados na mesma transação.
 
 `TransfersService` mantém as regras específicas em `create` e `reverse`. A reserva
 ou recuperação da idempotência é compartilhada por `resolveIdempotency`, e
@@ -56,8 +58,10 @@ do comando, sem abrir transações aninhadas.
 
 Transferências e estornos bloqueiam as carteiras com `FOR UPDATE`, em ordem de ID,
 antes de calcular os novos saldos. Essa ordem reduz o risco de deadlocks entre
-movimentações em sentidos opostos. A comparação de versão também protege escritores
-otimistas, como o seed, e mantém a sequência dos eventos alinhada à projeção.
+movimentações em sentidos opostos.
+
+A comparação de versão também protege escritores otimistas, como o seed, e mantém
+a sequência dos eventos alinhada à projeção.
 
 No estorno, a transferência original é bloqueada antes da validação de elegibilidade.
 Esse lock serializa solicitações com chaves diferentes; a chave de idempotência
@@ -79,8 +83,8 @@ reconcilia operações entre carteiras nem garante conservação global de fundo
 - CLI `db:seed-wallet`: adiciona fundos de desenvolvimento por referência
   idempotente; não é integração de depósito.
 
-Uma falha antes do commit desfaz todas as escritas por rollback. Após o commit,
-o estorno é uma nova operação no sentido inverso, autorizada somente ao remetente
+Uma falha antes do commit desfaz todas as escritas por rollback. Após o commit, o
+estorno é uma nova operação no sentido inverso, autorizada somente ao remetente
 original. Não há estorno parcial nem de outro estorno. Se o destinatário não tiver
 saldo suficiente, a solicitação falha sem efeitos parciais.
 
@@ -94,10 +98,11 @@ criação, mesmo se a operação já tiver sido estornada. Por isso essa respost
 chave para outro comando, inclusive entre criação e estorno, retorna conflito.
 
 O guard valida JWT e sessão persistida em cada chamada autenticada. A validação
-global de DTOs rejeita campos não declarados. Erros conhecidos recebem respostas
-controladas; detalhes do banco não são enviados ao cliente.
-`configureApp`, em `src/app.setup.ts`, aplica o mesmo filtro de erros e pipe de
-validação no bootstrap da API e nos testes E2E.
+global de DTOs rejeita campos não declarados.
+
+Erros conhecidos recebem respostas controladas; detalhes do banco não são enviados
+ao cliente. `configureApp`, em `src/app.setup.ts`, aplica o mesmo filtro de erros
+e pipe de validação no bootstrap da API e nos testes E2E.
 
 ## Limites arquiteturais
 
