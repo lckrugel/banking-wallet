@@ -7,7 +7,6 @@ services:
       - ${PORT:-3000}:${PORT:-3000}
     environment:
       - NODE_ENV=${NODE_ENV:-production}
-      - LOG_LEVEL=${LOG_LEVEL:-info}
       - PORT=${PORT:-3000}
       - JWT_SECRET=${JWT_SECRET}
       - PG_HOST=db
