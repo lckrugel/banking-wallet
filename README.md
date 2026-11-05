@@ -176,31 +176,6 @@ seus dados não são persistidos após sua remoção.
 Os testes de integração cobrem rollback, concorrência de projeções, constraints
 e divergência entre projeção e eventos, além de idempotência e disputa de saldo
 entre transferência e estorno.
-
-### E2E pela interface HTTP
-
-Os E2E usam NestJS, JWT e PostgreSQL reais, com o mesmo filtro de erros e pipe de
-validação da API. Cobrem cadastro, login, transferência, consulta de saldo,
-histórico, estorno, idempotência e rejeições por autenticação, autorização e saldo.
-O seed é somente uma fixture interna, não um endpoint adicional.
-
-Use outro projeto Compose e uma porta livre, por exemplo `55434`:
-
-```sh
-PG_TEST_PORT=55434 PG_DB=banking_wallet_e2e docker compose -p banking-wallet-e2e -f compose.test.yml up -d db
-# Aguarde o banco ficar saudável antes de aplicar as migrations.
-PG_HOST=127.0.0.1 PG_PORT=55434 PG_DB=banking_wallet_e2e npm run db:migrate
-TEST_PG_HOST=127.0.0.1 TEST_PG_PORT=55434 TEST_PG_DB=banking_wallet_e2e npm run test:e2e
-docker compose -p banking-wallet-e2e -f compose.test.yml down
-```
-
-O runner exige `TEST_PG_HOST`, `TEST_PG_PORT` e `TEST_PG_DB` explícitos e os mapeia
-para as variáveis `PG_*` antes de carregar a aplicação. Sem essas variáveis ele
-falha, em vez de usar silenciosamente o banco de desenvolvimento. Usuário, senha
-e demais configurações continuam vindo do ambiente ou `.env`.
-
-Cada cenário cria dados próprios; a suíte remove apenas suas fixtures e fecha a
-aplicação e as conexões. Não aponte os testes para bancos compartilhados ou de
 produção. Ao terminar, remova somente o projeto de teste criado para essa execução.
 
 ## Logs e operação
