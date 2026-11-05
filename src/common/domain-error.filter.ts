@@ -69,6 +69,15 @@ const PUBLIC_ERRORS: Record<string, HttpError> = {
   TRANSFER_NOT_REVERSIBLE: { status: 409, code: 'TRANSFER_NOT_REVERSIBLE', message: 'Transfer is not eligible for reversal' },
 };
 
+// Only log known static messages, never arbitrary request or validation values.
+const SAFE_BAD_REQUEST_MESSAGES = new Set([
+  'Invalid cursor',
+  'Invalid limit',
+  'A valid transfer UUID is required',
+  'A valid Idempotency-Key UUID is required',
+]);
+const VALIDATED_FIELDS = ['email', 'password', 'name', 'recipientUserId', 'amountCents'];
+
 @Catch()
 export class DomainErrorFilter implements ExceptionFilter {
   private readonly logger = new Logger(DomainErrorFilter.name);
@@ -86,12 +95,14 @@ export class DomainErrorFilter implements ExceptionFilter {
       message: 'Internal server error',
     };
     let errorCode = 'INTERNAL_SERVER_ERROR';
+    let reason: string | undefined;
+    let fields: string[] = [];
 
     if (exception instanceof DomainError) {
+      errorCode = exception.code;
       const mapped = PUBLIC_ERRORS[exception.code];
       if (mapped) {
         status = mapped.status;
-        errorCode = mapped.code;
         body = { statusCode: status, code: mapped.code, message: mapped.message };
       }
     } else if (exception instanceof HttpException) {
@@ -102,11 +113,26 @@ export class DomainErrorFilter implements ExceptionFilter {
         : {};
       const suppliedCode = responseObject.code;
       errorCode = typeof suppliedCode === 'string' ? suppliedCode : `HTTP_${status}`;
+      if (status === 400) {
+        const message = responseObject.message;
+        if (typeof message === 'string' && SAFE_BAD_REQUEST_MESSAGES.has(message)) {
+          reason = message;
+        } else if (Array.isArray(message)) {
+          errorCode = 'VALIDATION_FAILED';
+          fields = VALIDATED_FIELDS.filter((field) =>
+            message.some((item: unknown) => typeof item === 'string' && item.startsWith(`${field} `)),
+          );
+        }
+      }
       body = typeof exceptionBody === 'object' && exceptionBody !== null
         ? { statusCode: status, ...responseObject } as typeof body
         : { statusCode: status, code: errorCode, message: String(exceptionBody) };
     }
 
+    const cause = exception instanceof Error && exception.cause instanceof Error
+      ? exception.cause
+      : undefined;
+    const rootCause = cause?.cause instanceof Error ? cause.cause : cause;
     const logEntry = {
       event: 'http_request_failed',
       requestId: request?.requestId,
@@ -115,7 +141,13 @@ export class DomainErrorFilter implements ExceptionFilter {
       statusCode: status,
       errorCode,
       errorType: exception instanceof Error ? exception.name : 'UnknownError',
-      ...(status >= 500 && exception instanceof Error ? { stack: exception.stack } : {}),
+      ...(reason ? { reason } : {}),
+      ...(fields.length ? { fields } : {}),
+      ...(status >= 500 && cause ? { causeType: cause.name } : {}),
+      ...(status >= 500 && rootCause && 'code' in rootCause && typeof rootCause.code === 'string'
+        ? { causeCode: rootCause.code }
+        : {}),
+      ...(status >= 500 && exception instanceof Error ? { stack: rootCause?.stack ?? exception.stack } : {}),
     };
     if (status >= 500) this.logger.error(logEntry);
     else this.logger.warn(logEntry);
