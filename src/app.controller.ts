@@ -22,8 +22,8 @@ export class AppController {
     try {
       await this.db.execute(sql`select 1`);
       return { status: 'ok' };
-    } catch {
-      throw new ServiceUnavailableException({ status: 'error' });
+    } catch (error) {
+      throw new ServiceUnavailableException({ status: 'error' }, { cause: error });
     }
   }
 }
