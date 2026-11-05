@@ -12,6 +12,7 @@ export const drizzleFactory = async (
       user: config.getOrThrow('PG_USER'),
       password: config.getOrThrow('PG_PASSWORD'),
       database: config.getOrThrow('PG_DB'),
+      connectionTimeoutMillis: 3000,
     },
   });
   return { db };

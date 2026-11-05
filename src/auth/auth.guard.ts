@@ -27,20 +27,21 @@ export class AuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const authorization = request.headers.authorization;
-    const [scheme, token] = authorization?.split(' ') ?? [];
-    if (scheme?.toLowerCase() !== 'bearer' || !token) {
+    const [scheme, token, extra] = authorization?.split(' ') ?? [];
+    if (scheme?.toLowerCase() !== 'bearer' || !token || extra !== undefined) {
       throw new UnauthorizedException();
     }
 
+    let payload: { sub: string; sid: string };
     try {
-      const payload = await this.jwt.verifyAsync<{ sub: string; sid: string }>(
+      payload = await this.jwt.verifyAsync<{ sub: string; sid: string }>(
         token,
       );
-      if (!payload.sub || !payload.sid) throw new Error('Invalid token claims');
-      request.user = await this.auth.authenticate(payload.sid, payload.sub);
-      return true;
     } catch {
       throw new UnauthorizedException();
     }
+    if (!payload.sub || !payload.sid) throw new UnauthorizedException();
+    request.user = await this.auth.authenticate(payload.sid, payload.sub);
+    return true;
   }
 }

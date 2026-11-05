@@ -10,15 +10,6 @@ import {
   validateSync,
 } from 'class-validator';
 
-enum LogLevel {
-  Trace = 'trace',
-  Debug = 'debug',
-  Info = 'info',
-  Warn = 'warn',
-  Error = 'error',
-  Fatal = 'fatal',
-}
-
 enum NodeEnvironment {
   Development = 'development',
   Testing = 'test',
@@ -34,8 +25,6 @@ export class EnvironmentVariables {
   PORT: number;
   @IsEnum(NodeEnvironment)
   NODE_ENV: NodeEnvironment;
-  @IsEnum(LogLevel)
-  LOG_LEVEL: LogLevel;
   @IsOptional()
   @IsString()
   TZ?: string;

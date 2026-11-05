@@ -1,22 +1,47 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
+import { getDrizzleToken } from '@nestjs/drizzle';
 
 describe('AppController', () => {
   let appController: AppController;
+  const execute = vi.fn().mockResolvedValue({ rows: [{ '?column?': 1 }] });
+  const transaction = vi.fn((work: (tx: { execute: typeof execute }) => Promise<unknown>) => work({ execute }));
 
   beforeEach(async () => {
+    execute.mockReset().mockResolvedValue({ rows: [{ '?column?': 1 }] });
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [{ provide: getDrizzleToken(), useValue: { transaction } }],
     }).compile();
 
     appController = app.get<AppController>(AppController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+  describe('health', () => {
+    it('reports the application as live', () => {
+      expect(appController.live()).toEqual({ status: 'ok' });
+    });
+
+    it('checks database readiness', async () => {
+      await expect(appController.ready()).resolves.toEqual({ status: 'ok' });
+      expect(execute).toHaveBeenCalledTimes(2);
+    });
+
+    it('returns a generic 503 while retaining the database error as its cause', async () => {
+      const failure = new Error('Connection refused');
+      execute.mockRejectedValueOnce(failure);
+
+      try {
+        await appController.ready();
+        throw new Error('Expected a readiness failure');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ServiceUnavailableException);
+        const exception = error as ServiceUnavailableException;
+        expect(exception.getStatus()).toBe(503);
+        expect(exception.getResponse()).toEqual({ status: 'error' });
+        expect(exception.cause).toBe(failure);
+      }
     });
   });
 });

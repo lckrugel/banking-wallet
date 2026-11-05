@@ -82,6 +82,15 @@ describe('AuthGuard', () => {
     );
   });
 
+  it('does not turn a session lookup failure into an invalid token', async () => {
+    const { context } = contextFor('Bearer token');
+    const failure = new Error('Database unavailable');
+    jwt.verifyAsync.mockResolvedValue({ sub: 'user-id', sid: 'session-id' });
+    auth.authenticate.mockRejectedValue(failure);
+
+    await expect(guard.canActivate(context)).rejects.toBe(failure);
+  });
+
   it('attaches the authenticated identity when JWT and session are valid', async () => {
     const { context, request } = contextFor('Bearer valid-token');
     jwt.verifyAsync.mockResolvedValue({ sub: 'user-id', sid: 'session-id' });
