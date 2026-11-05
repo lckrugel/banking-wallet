@@ -28,24 +28,27 @@ flowchart LR
 | `transfers`    | Transferências e estornos transacionais, autorização e idempotência.  |
 | `events`       | Validação de sequência e persistência de eventos de carteira.         |
 | `database`     | Schema Drizzle, conexão, Unit of Work e ferramenta interna de seed.   |
-| `common`       | Erros de domínio e tradução para respostas HTTP.                      |
+| `common`       | Logging de requisições, erros de domínio e respostas HTTP.             |
 
 ## Dados e consistência
 
 - `users` e `sessions` representam identidade e sessões revogáveis.
 - `wallets` guarda uma projeção síncrona de saldo e versão, com uma carteira no
   máximo por usuário e constraint de saldo não negativo.
-- `events` guarda o histórico append-only **por convenção da aplicação**; cada
-  carteira tem versões sequenciais. Os valores são centavos inteiros (`bigint`),
-  serializados como strings no JSON.
+- `events` guarda o histórico append-only **por convenção da aplicação**. A
+  aplicação valida versões sequenciais por carteira; o banco garante versões
+  positivas e únicas, mas não impede lacunas por si só. Valores monetários são
+  centavos inteiros (`bigint`), serializados como strings no JSON.
 - `transfers` registra transferências e compensações. `reversal_of` vincula um
   estorno à operação original e é único, impedindo duas compensações para ela.
 - `idempotency_keys` reserva comandos por usuário e chave, com fingerprint do
   pedido. Reserva, operação, saldos e eventos são confirmados na mesma transação.
 
 O domínio `Wallet` aplica regras monetárias sem depender de NestJS ou Drizzle.
-Repositories encapsulam consultas. O Unit of Work compartilha uma transação Drizzle
-entre escritas relacionadas.
+Repositories encapsulam consultas de domínio. O endpoint de prontidão é uma
+exceção simples e consulta o banco diretamente.
+
+O Unit of Work compartilha uma transação Drizzle entre escritas relacionadas.
 
 Ao persistir uma alteração, a projeção é atualizada com comparação de versão.
 Eventos e projeção devem ser gravados na mesma transação.
@@ -80,6 +83,8 @@ reconcilia operações entre carteiras nem garante conservação global de fundo
 - `GET /wallets/history`: consulta operações em `transfers`, não o stream de eventos.
 - `POST /transfers`: transfere centavos do usuário autenticado para outro usuário.
 - `POST /transfers/:id/reverse`: compensa integralmente uma transferência própria.
+- `GET /health/live` e `GET /health/ready`: verificam a aplicação e o acesso ao
+  banco de dados, respectivamente.
 - CLI `db:seed-wallet`: adiciona fundos de desenvolvimento por referência
   idempotente; não é integração de depósito.
 
@@ -98,11 +103,10 @@ criação, mesmo se a operação já tiver sido estornada. Por isso essa respost
 chave para outro comando, inclusive entre criação e estorno, retorna conflito.
 
 O guard valida JWT e sessão persistida em cada chamada autenticada. A validação
-global de DTOs rejeita campos não declarados.
-
-Erros conhecidos recebem respostas controladas; detalhes do banco não são enviados
-ao cliente. `configureApp`, em `src/app.setup.ts`, aplica o mesmo filtro de erros
-e pipe de validação no bootstrap da API e nos testes E2E.
+global de DTOs rejeita campos não declarados. Erros conhecidos recebem respostas
+controladas; detalhes do banco não são enviados ao cliente. `configureApp`, em
+`src/app.setup.ts`, aplica o filtro de erros, o pipe de validação e o middleware
+de logging no bootstrap da API.
 
 ## Limites arquiteturais
 

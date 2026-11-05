@@ -109,8 +109,8 @@ após o commit é uma nova movimentação; ele não restaura saldos antigos nem 
 outras transferências. Uma retentativa idempotente retorna a resposta original de
 criação (`COMPLETED`), mesmo após estorno; consulte o histórico para o status atual.
 
-A carteira recém-criada retorna `{"walletId":"<uuid>","balance":"0"}`.
-`balance` é uma string de centavos, não um valor em unidades monetárias.
+O cadastro cria a carteira junto com o usuário; o saldo pode ser consultado em
+`GET /wallets`. Valores monetários são strings de centavos, não unidades monetárias.
 O logout revoga a sessão do token utilizado.
 
 | Método | Rota                     | Autenticação | Finalidade                                               |
@@ -190,8 +190,9 @@ docker compose logs -f api
 As requisições geram logs JSON com identificador, rota, status e duração; falhas
 incluem código e tipo do erro, com stack trace apenas para erros de servidor. O
 `x-request-id` da resposta permite correlacionar a chamada com os logs. Os
-endpoints de saúde são públicos; `/health/ready` executa `SELECT 1` no PostgreSQL,
-com limites de três segundos para conexão e execução da consulta.
+endpoints de saúde são públicos. `/health/ready` executa `SELECT 1` no PostgreSQL,
+com timeout de três segundos para obter conexão e limite de três segundos para a
+instrução SQL; a duração total da chamada pode ser maior.
 Não há reconciliação entre operações nem reparo automático de projeções; o projeto
 não está pronto para operar dinheiro real em produção.
 
