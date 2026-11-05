@@ -76,29 +76,33 @@ Com a API em execução, acesse [Swagger UI](http://localhost:3000/docs) para
 consultar e experimentar os endpoints. A especificação OpenAPI em JSON está em
 [`/docs-json`](http://localhost:3000/docs-json).
 
-O campo `amountCents` deve ser uma string decimal inteira positiva, limitada ao BIGINT assinado
-do PostgreSQL. A transferência é atômica e aparece no histórico de ambas as
-carteiras. Gere uma chave UUID por comando de transferência e reutilize exatamente
-a mesma chave ao repetir uma chamada cujo resultado seja incerto; não gere outra
-chave para uma simples repetição. A chave é escopada pelo usuário autenticado e
-retida indefinidamente. Uma repetição com o mesmo comando normalizado retorna o
-resultado original sem novos efeitos financeiros. Reutilizar a chave com outro
-destinatário ou valor retorna `409 IDEMPOTENCY_KEY_REUSED`; chaves ausentes ou
-inválidas retornam `400`. A reserva da chave, operação, projeções e eventos são
-confirmados juntos: falhas não persistem a chave e podem ser tentadas novamente.
-Chamadas simultâneas com a mesma chave são serializadas pelo PostgreSQL; apenas
-uma operação é criada, e chamadas concorrentes com comandos diferentes resultam
+O campo `amountCents` deve ser uma string decimal inteira positiva, limitada ao
+BIGINT assinado do PostgreSQL. A transferência é atômica e aparece no histórico de
+ambas as carteiras. Gere uma chave UUID por comando de transferência e reutilize
+exatamente a mesma chave ao repetir uma chamada cujo resultado seja incerto; não
+gere outra chave para uma simples repetição. A chave é escopada pelo usuário
+autenticado e retida indefinidamente.
+
+Uma repetição com o mesmo comando normalizado retorna o resultado original sem
+novos efeitos financeiros. Reutilizar a chave com outro destinatário ou valor
+retorna `409 IDEMPOTENCY_KEY_REUSED`; chaves ausentes ou inválidas retornam `400`.
+
+A reserva da chave, a operação, as projeções e os eventos são confirmados juntos.
+Falhas não persistem a chave, então a chamada pode ser tentada novamente.
+Chamadas simultâneas com a mesma chave são serializadas pelo PostgreSQL: apenas
+uma operação é criada. Chamadas concorrentes com comandos diferentes resultam
 em uma criação e um conflito.
 
 Somente o remetente original pode estornar uma transferência `COMPLETED`, pelo
 endpoint autenticado `POST /transfers/:id/reverse`, com um `Idempotency-Key`
 UUID próprio. O estorno é sempre integral; não há estornos parciais. O destinatário
 precisa manter saldo suficiente para devolver o valor: movimentações posteriores
-podem tornar o estorno indisponível (`422 INSUFFICIENT_FUNDS`). Um estorno é uma
-nova operação compensatória, não um rollback: os eventos originais permanecem
-imutáveis, o histórico exibe a transferência original como `REVERSED` e uma
-operação `REVERSAL` separada. Use a mesma chave em tentativas repetidas; chaves
-distintas para uma transferência já estornada entram em conflito (`409`).
+podem tornar o estorno indisponível (`422 INSUFFICIENT_FUNDS`).
+
+O estorno é uma nova operação compensatória, não um rollback: os eventos originais
+permanecem imutáveis, e o histórico exibe a transferência original como `REVERSED`
+e uma operação `REVERSAL` separada. Use a mesma chave em tentativas repetidas;
+chaves distintas para uma transferência já estornada entram em conflito (`409`).
 
 Uma falha durante a execução causa rollback de todas as escritas. Já o estorno
 após o commit é uma nova movimentação; ele não restaura saldos antigos nem desfaz
@@ -176,7 +180,6 @@ seus dados não são persistidos após sua remoção.
 Os testes de integração cobrem rollback, concorrência de projeções, constraints
 e divergência entre projeção e eventos, além de idempotência e disputa de saldo
 entre transferência e estorno.
-produção. Ao terminar, remova somente o projeto de teste criado para essa execução.
 
 ## Logs e operação
 
