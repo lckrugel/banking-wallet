@@ -194,3 +194,14 @@ endpoints de saúde são públicos; `/health/ready` executa `SELECT 1` no Postgr
 com limites de três segundos para conexão e execução da consulta.
 Não há reconciliação entre operações nem reparo automático de projeções; o projeto
 não está pronto para operar dinheiro real em produção.
+
+## Implementação e uso de IA
+
+Este projeto foi desenvolvido com o apoio de agentes de IA para prototipação, programação, documentação e testes.
+
+Inicialmente, os requisitos funcionais e não funcionais do projeto foram definidos
+em discussão com um agente. Com isso, foi criado um plano de ação, que deu origem
+a tarefas focadas e com critérios claros de aceitação.
+
+O desenvolvimento de cada tarefa foi feito em grande parte por agentes, seguido
+de uma revisão humana, especialmente dos testes e dos cenários que eles cobrem.
