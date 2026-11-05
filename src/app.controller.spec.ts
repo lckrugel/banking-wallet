@@ -5,13 +5,14 @@ import { getDrizzleToken } from '@nestjs/drizzle';
 
 describe('AppController', () => {
   let appController: AppController;
-  const execute = vi.fn().mockResolvedValue([{ '?column?': 1 }]);
+  const execute = vi.fn().mockResolvedValue({ rows: [{ '?column?': 1 }] });
+  const transaction = vi.fn((work: (tx: { execute: typeof execute }) => Promise<unknown>) => work({ execute }));
 
   beforeEach(async () => {
-    execute.mockReset().mockResolvedValue([{ '?column?': 1 }]);
+    execute.mockReset().mockResolvedValue({ rows: [{ '?column?': 1 }] });
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [{ provide: getDrizzleToken(), useValue: { execute } }],
+      providers: [{ provide: getDrizzleToken(), useValue: { transaction } }],
     }).compile();
 
     appController = app.get<AppController>(AppController);
@@ -24,6 +25,7 @@ describe('AppController', () => {
 
     it('checks database readiness', async () => {
       await expect(appController.ready()).resolves.toEqual({ status: 'ok' });
+      expect(execute).toHaveBeenCalledTimes(2);
     });
 
     it('returns a generic 503 while retaining the database error as its cause', async () => {

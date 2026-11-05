@@ -22,7 +22,10 @@ export class AppController {
   @ApiServiceUnavailableResponse({ description: 'Banco de dados indisponível', schema: { type: 'object', required: ['statusCode', 'status'], properties: { statusCode: { type: 'integer', enum: [503] }, status: { type: 'string', enum: ['error'] } } } })
   async ready(): Promise<{ status: 'ok' }> {
     try {
-      await this.db.execute(sql`select 1`);
+      await this.db.transaction(async (tx) => {
+        await tx.execute(sql`SET LOCAL statement_timeout = '3s'`);
+        await tx.execute(sql`SELECT 1`);
+      });
       return { status: 'ok' };
     } catch (error) {
       throw new ServiceUnavailableException({ status: 'error' }, { cause: error });
