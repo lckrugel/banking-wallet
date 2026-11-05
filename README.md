@@ -212,6 +212,7 @@ docker compose logs -f api
 As requisições geram logs JSON com identificador, rota, status e duração; falhas
 incluem código e tipo do erro, com stack trace apenas para erros de servidor. O
 `x-request-id` da resposta permite correlacionar a chamada com os logs. Os
-endpoints de saúde são públicos; `/health/ready` executa `SELECT 1` no PostgreSQL.
+endpoints de saúde são públicos; `/health/ready` executa `SELECT 1` no PostgreSQL,
+com limites de três segundos para conexão e execução da consulta.
 Não há reconciliação entre operações nem reparo automático de projeções; o projeto
 não está pronto para operar dinheiro real em produção.

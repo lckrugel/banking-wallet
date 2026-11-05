@@ -3,6 +3,7 @@ import { ApiBadRequestResponse, ApiBearerAuth, ApiConflictResponse, ApiCreatedRe
 import { AuthGuard, type AuthenticatedUser } from '../auth/auth.guard.js';
 import { CurrentUser } from '../auth/auth-user.decorator.js';
 import { CreateTransferDto } from './transfer.dto.js';
+import { TransferResponseDto } from './transfer-response.dto.js';
 import { TransfersService } from './transfers.service.js';
 
 @UseGuards(AuthGuard)
@@ -15,7 +16,7 @@ export class TransfersController {
   @Post()
   @ApiOperation({ summary: 'Transferir fundos para outro usuário' })
   @ApiHeader({ name: 'idempotency-key', required: true, description: 'UUID para permitir novas tentativas seguras da solicitação' })
-  @ApiCreatedResponse({ schema: { type: 'object', properties: { id: { type: 'string', format: 'uuid' }, senderWallet: { type: 'string', format: 'uuid' }, receiverWallet: { type: 'string', format: 'uuid' }, amountCents: { type: 'string', example: '1250' }, status: { type: 'string', example: 'COMPLETED' }, createdAt: { type: 'string', format: 'date-time' } } } })
+  @ApiCreatedResponse({ type: TransferResponseDto })
   @ApiBadRequestResponse({ description: 'Chave de idempotência ausente ou inválida, ou solicitação inválida' })
   @ApiConflictResponse({ description: 'Chave de idempotência reutilizada com uma solicitação diferente' })
   @ApiNotFoundResponse({ description: 'Destinatário ou carteira não encontrado' })
@@ -28,7 +29,7 @@ export class TransfersController {
   @Post(':id/reverse')
   @ApiOperation({ summary: 'Estornar uma transferência concluída' })
   @ApiHeader({ name: 'idempotency-key', required: true, description: 'UUID para permitir novas tentativas seguras da solicitação' })
-  @ApiCreatedResponse({ description: 'Estorno criado' })
+  @ApiCreatedResponse({ description: 'Estorno criado', type: TransferResponseDto })
   @ApiBadRequestResponse({ description: 'Identificador da transferência ou chave de idempotência inválido' })
   @ApiConflictResponse({ description: 'Transferência não pode ser estornada ou chave já utilizada' })
   @ApiNotFoundResponse({ description: 'Transferência não encontrada' })
